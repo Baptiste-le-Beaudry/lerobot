@@ -9,13 +9,13 @@ from lerobot.common.teleoperators.so100_leader import SO100Leader, SO100LeaderCo
 import numpy as np
 NB_CYCLES_CLIENT_CONNECTION = 250
 
-leader_arm_config = SO100LeaderConfig(port="COM3")
+leader_arm_config = SO100LeaderConfig(port="COM12")
 leader_arm = SO100Leader(leader_arm_config)
 
 keyboard_config = KeyboardTeleopConfig()
 keyboard = KeyboardTeleop(keyboard_config)
 
-robot_config = LeKiwiClientConfig(remote_ip="192.168.100.128", id="lekiwi")
+robot_config = LeKiwiClientConfig(remote_ip="192.168.100.151", id="lekiwi")
 robot = LeKiwiClient(robot_config)
 
 action_features = hw_to_dataset_features(robot.action_features, "action")
@@ -55,7 +55,7 @@ while i < NB_CYCLES_CLIENT_CONNECTION:
     observation = robot.get_observation()
 
 
-    task = "Dummy Example Task Dataset"
+    task = "center_over_block_1"
 
     ######
     # Construis le dictionnaire `frame` sans imbriquer `observation`
@@ -76,22 +76,35 @@ while i < NB_CYCLES_CLIENT_CONNECTION:
     # Si c'est un tensor PyTorch, convertis en ndarray
     if hasattr(wrist_img, "numpy"):
         wrist_img = wrist_img.numpy()
-
     # Corriger l'orientation si besoin
     if wrist_img.shape == (480, 640, 3):
         wrist_img = cv2.rotate(wrist_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
     elif wrist_img.shape == (480, 3, 640):
         wrist_img = np.transpose(wrist_img, (0, 2, 1))
-
     # Remplace l'image dans le frame
     frame[wrist_key] = wrist_img
+    front_key = "observation.images.front"
+    if front_key in frame:
+        front_img = frame[front_key]
+
+        if hasattr(front_img, "numpy"):
+            front_img = front_img.numpy()
+
+    # 🔄 Corrige la forme si nécessaire
+        if front_img.shape == (640, 480, 3):
+            front_img = np.transpose(front_img, (1, 0, 2))  # (H, W, C) = (480, 640, 3)
+        elif front_img.shape == (480, 3, 640):
+            front_img = np.transpose(front_img, (0, 2, 1))
+        elif front_img.shape == (480, 640, 3):
+            pass  # bon format
+        else:
+            print(f"❌ Format inattendu pour front_img: {front_img.shape}")
+            exit(1)
+
+    frame[front_key] = front_img
+
 
     # Ajoute la frame au dataset
-    dataset.add_frame(frame, task)
-
-
-    
-
     dataset.add_frame(frame, task)
     i += 1
 

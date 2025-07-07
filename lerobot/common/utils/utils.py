@@ -231,9 +231,20 @@ def is_valid_numpy_dtype_string(dtype_str: str) -> bool:
         # If a TypeError is raised, the string is not a valid dtype
         return False
 
+import sys
+import platform
 
-def enter_pressed() -> bool:
-    return select.select([sys.stdin], [], [], 0)[0] and sys.stdin.readline().strip() == ""
+if platform.system() == "Windows":
+    import msvcrt
+    def enter_pressed():
+        return msvcrt.kbhit() and msvcrt.getch() == b'\r'
+else:
+    import select
+    def enter_pressed():
+        return select.select([sys.stdin], [], [], 0)[0] and sys.stdin.readline().strip() == ""
+
+#def enter_pressed() -> bool:    
+    # return select.select([sys.stdin], [], [], 0)[0] and sys.stdin.readline().strip() == ""
 
 
 def move_cursor_up(lines):

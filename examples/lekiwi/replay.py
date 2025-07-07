@@ -5,10 +5,10 @@ from lerobot.common.robots.lekiwi.config_lekiwi import LeKiwiClientConfig
 from lerobot.common.robots.lekiwi.lekiwi_client import LeKiwiClient
 from lerobot.common.utils.robot_utils import busy_wait
 
-robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="lekiwi")
+robot_config = LeKiwiClientConfig(remote_ip="192.168.100.151", id="lekiwi")
 robot = LeKiwiClient(robot_config)
 
-dataset = LeRobotDataset("pepijn223/lekiwi1749025613", episodes=[0])
+dataset = LeRobotDataset("Baptiste-le-Beaudry/lerobot-dataset1751661213", episodes=[0])
 
 robot.connect()
 
