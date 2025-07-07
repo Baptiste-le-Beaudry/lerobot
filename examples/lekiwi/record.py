@@ -55,7 +55,7 @@ while i < NB_CYCLES_CLIENT_CONNECTION:
     observation = robot.get_observation()
 
 
-    task = "center_over_block_1"
+    task = "center_over_block_4"
 
     ######
     # Construis le dictionnaire `frame` sans imbriquer `observation`
