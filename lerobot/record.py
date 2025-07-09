@@ -83,6 +83,15 @@ from lerobot.configs.policies import PreTrainedConfig
 
 from .common.teleoperators import koch_leader, so100_leader, so101_leader  # noqa: F401
 
+import logging
+from pprint import pformat
+
+from lerobot.common.robots import RobotConfig
+
+from lerobot.common.robots import Robot
+
+
+
 
 @dataclass
 class DatasetRecordConfig:
@@ -139,8 +148,8 @@ class RecordConfig:
     resume: bool = False
 
     def __post_init__(self):
-        if bool(self.teleop) == bool(self.policy):
-            raise ValueError("Choose either a policy or a teleoperator to control the robot")
+        #if bool(self.teleop) == bool(self.policy):
+            #raise ValueError("Choose either a policy or a teleoperator to control the robot")
 
         # HACK: We parse again the cli args here to get the pretrained path if there was one.
         policy_path = parser.get_path_arg("policy")
@@ -233,6 +242,9 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
         _init_rerun(session_name="recording")
 
     robot = make_robot_from_config(cfg.robot)
+    from lerobot.common.robots.lekiwi import LeKiwi
+    robot = LeKiwi(cfg.robot)
+
     teleop = make_teleoperator_from_config(cfg.teleop) if cfg.teleop is not None else None
 
     action_features = hw_to_dataset_features(robot.action_features, "action", cfg.dataset.video)

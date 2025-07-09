@@ -16,6 +16,13 @@ from .config import TeleoperatorConfig
 from .teleoperator import Teleoperator
 
 
+import logging
+from pprint import pformat
+
+from lerobot.common.robots import RobotConfig
+
+from lerobot.common.robots import Robot
+
 def make_teleoperator_from_config(config: TeleoperatorConfig) -> Teleoperator:
     if config.type == "keyboard":
         from .keyboard import KeyboardTeleop
@@ -23,6 +30,11 @@ def make_teleoperator_from_config(config: TeleoperatorConfig) -> Teleoperator:
         return KeyboardTeleop(config)
     elif config.type == "koch_leader":
         from .koch_leader import KochLeader
+
+    elif config.type == "lekiwi":
+        from lerobot.common.robots.lekiwi import LeKiwi
+
+        return LeKiwi(config)    
 
         return KochLeader(config)
     elif config.type == "so100_leader":
