@@ -122,6 +122,18 @@ def predict_action(
         observation["task"] = task if task else ""
         observation["robot_type"] = robot_type if robot_type else ""
 
+        # ✅ Ajoute ces lignes ici
+        print(">>> Observation keys:", list(observation.keys()))
+        if isinstance(policy.config.image_features, dict):
+            print(">>> Expected image features:", policy.config.image_features)
+        else:
+            print(">>> Expected image features:", list(policy.config.image_features))
+
+        # ✅ (optionnel) Affiche les types pour être sûr
+        for k, v in observation.items():
+            print(f">>> observation[{k}]: shape={getattr(v, 'shape', 'n/a')} type={type(v)}")
+
+
         # Compute the next action with the policy
         # based on the current observation
         action = policy.select_action(observation)

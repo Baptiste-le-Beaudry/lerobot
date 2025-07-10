@@ -105,6 +105,13 @@ class PreTrainedPolicy(nn.Module, HubMixin, abc.ABC):
                 revision=revision,
                 **kwargs,
             )
+        # patch manuel pour aligner la config avec le code ACT
+        if not hasattr(config, "state_feature"):
+            config.state_feature = "observation.state"
+            # **ici** on définit image_features au pluriel (ce que le code attend)
+        if not hasattr(config, "image_features"):
+            config.image_features = ["observation.images.front", "observation.images.wrist"]
+
         model_id = str(pretrained_name_or_path)
         instance = cls(config, **kwargs)
         if os.path.isdir(model_id):

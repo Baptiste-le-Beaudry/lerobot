@@ -194,6 +194,8 @@ def record_loop(
             observation_frame = build_dataset_frame(dataset.features, observation, prefix="observation")
 
         if policy is not None:
+            print(">>> Expected image features:", policy.config.image_features)
+            print(">>> Batch keys:", list(observation_frame.keys()))
             action_values = predict_action(
                 observation_frame,
                 policy,

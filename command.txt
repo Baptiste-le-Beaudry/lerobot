@@ -1,0 +1,3 @@
+python -m lerobot.record --robot.type=so100_follower --robot.port=/dev/ttyACM0 --robot.id=lekiwi --robot.cameras='{"front":{"type":"opencv","index_or_path":0,"width":640,"height":480,"fps":30},"wrist":{"type":"opencv","index_or_path":"/dev/video2","width":640,"height":480,"fps":30}}' --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi --dataset.single_task="center_over_block_run2" --policy.path=Baptiste-le-Beaudry/act_lekiwi_full
+
+rm -rf /home/motsai/.cache/huggingface/lerobot/Baptiste-le-Beaudry/eval_lekiwi

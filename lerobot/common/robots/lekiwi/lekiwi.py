@@ -94,8 +94,14 @@ class LeKiwi(Robot):
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
         return {
-            cam: (self.config.cameras[cam].height, self.config.cameras[cam].width, 3) for cam in self.cameras
+            f"{cam}": (
+                self.config.cameras[cam].height,
+                self.config.cameras[cam].width,
+                3
+            )
+            for cam in self.cameras
         }
+
 
     @cached_property
     def observation_features(self) -> dict[str, type | tuple]:
@@ -359,6 +365,8 @@ class LeKiwi(Robot):
             obs_dict[f"{OBS_IMAGES}.{cam_key}"] = cam.async_read()
             dt_ms = (time.perf_counter() - start) * 1e3
             logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+
+        print(">>> Observation keys:", list(obs_dict.keys()))
 
         return obs_dict
 
