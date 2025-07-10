@@ -135,9 +135,60 @@ class OpenCVCamera(Camera):
     def is_connected(self) -> bool:
         """Checks if the camera is currently connected and opened."""
         return isinstance(self.videocapture, cv2.VideoCapture) and self.videocapture.isOpened()
+    
+    def connect(self) -> None:
+        """Connect to an OpenCV camera and configure it."""
+        cfg = self.config
+        print(f"[Debug] Connecting OpenCVCamera with config: {cfg}")  # ➊
 
+        # Liste des API à tester (Windows)
+        backends = {
+            "CAP_MSMF": cv2.CAP_MSMF,
+            "CAP_DSHOW": cv2.CAP_DSHOW,
+        }
+
+        last_exception = None
+        for name, api in backends.items():
+            try:
+                print(f"[Debug] Trying backend {name} ({api}) on index/path '{cfg.index_or_path}'")  # ➋
+                cap = cv2.VideoCapture(cfg.index_or_path, api)
+                if not cap.isOpened():
+                    raise RuntimeError(f"VideoCapture not opened with API {name}")
+                # configure resolution & fps
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, cfg.width)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, cfg.height)
+                cap.set(cv2.CAP_PROP_FPS, cfg.fps)
+                # test read
+                ok, frame = cap.read()
+                if not ok:
+                    raise RuntimeError(f"Read frame failed with API {name}")
+                # succès
+                self.videocapture = cap
+                print(f"[Debug] Successfully connected camera {cfg.index_or_path} with {name}")  # ➌
+                
+                return
+            except Exception as e:
+                print(f"[Debug] Backend {name} failed: {e}")  # ➍
+                last_exception = e
+                try:
+                    cap.release()
+                except:
+                    pass
+
+        # Si on arrive ici, toutes les tentatives ont échoué
+        raise ConnectionError(
+            f"Failed to open OpenCVCamera({cfg.index_or_path}). "
+            f"Last error: {last_exception}"
+        )
+    
+    def release(self) -> None:
+        """Release the OpenCV video capture if it exists."""
+        if self.videocapture is not None:
+            self.videocapture.release()
+
+    """
     def connect(self, warmup: bool = True):
-        """
+        #
         Connects to the OpenCV camera specified in the configuration.
 
         Initializes the OpenCV VideoCapture object, sets desired camera properties
@@ -147,7 +198,7 @@ class OpenCVCamera(Camera):
             DeviceAlreadyConnectedError: If the camera is already connected.
             ConnectionError: If the specified camera index/path is not found or the camera is found but fails to open.
             RuntimeError: If the camera opens but fails to apply requested FPS/resolution settings.
-        """
+        #
         if self.is_connected:
             raise DeviceAlreadyConnectedError(f"{self} is already connected.")
 
@@ -174,7 +225,7 @@ class OpenCVCamera(Camera):
                 time.sleep(0.1)
 
         logger.info(f"{self} connected.")
-
+    """
     def _configure_capture_settings(self) -> None:
         """
         Applies the specified FPS, width, and height settings to the connected camera.

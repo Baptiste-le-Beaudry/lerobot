@@ -424,7 +424,44 @@ def hw_to_dataset_features(
     _validate_feature_names(features)
     return features
 
+import numpy as np
+from lerobot.common.datasets.utils import DEFAULT_FEATURES
+def build_dataset_frame(
+   ds_features: dict[str, dict], values: dict[str, Any], prefix: str
+) -> dict[str, np.ndarray]:
+    frame: dict[str, np.ndarray] = {}
 
+    for key, ft in ds_features.items():
+        # skip default features and anything not for this prefix
+        if key in DEFAULT_FEATURES or not (key == prefix or key.startswith(prefix + ".")):
+            continue
+
+        # Cas 1: key == prefix  (p.ex. "action")
+        if key == prefix:
+            raw_dict = values  # c'est déjà le dict action→float
+
+        # Cas 2: key.startswith(prefix + ".")  (p.ex. "observation.state")
+        else:
+            # on sépare une seule fois après le premier "."
+            _, kind = key.split(".", 1)
+            raw_dict = values[f"{prefix}.{kind}"]
+
+        # 1) vecteurs 1D (dtype float32 et shape 1-D)
+        if ft["dtype"] == "float32" and len(ft["shape"]) == 1:
+            frame[key] = np.array([raw_dict[name] for name in ft["names"]], dtype=np.float32)
+
+        # 2) images / vidéos
+        elif ft["dtype"] in ["image", "video"]:
+            # pour les images, raw_dict n'est pas utilisé : on prend values[key]
+            frame[key] = values[key]
+
+        # 3) fallback pour tout autre cas
+        else:
+            frame[key] = np.array(raw_dict, dtype=np.float32)
+
+    return frame
+
+"""
 def build_dataset_frame(
     ds_features: dict[str, dict], values: dict[str, Any], prefix: str
 ) -> dict[str, np.ndarray]:
@@ -439,7 +476,7 @@ def build_dataset_frame(
             #frame[key] = values[key.removeprefix(f"{prefix}.images.")]
             pass
     return frame
-
+"""
 
 def get_features_from_robot(robot: Robot, use_videos: bool = True) -> dict:
     camera_ft = {}

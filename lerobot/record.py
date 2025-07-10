@@ -163,7 +163,116 @@ class RecordConfig:
         """This enables the parser to load config from the policy using `--policy.path=local/dir`"""
         return ["policy"]
 
+@safe_stop_image_writer
+def record_loop(
+    robot: Robot,
+    events: dict,
+    fps: int,
+    dataset: LeRobotDataset | None = None,
+    teleop: Teleoperator | None = None,
+    policy: PreTrainedPolicy | None = None,
+    control_time_s: int | None = None,
+    single_task: str | None = None,
+    display_data: bool = False,
+    ):
+    if dataset is not None and dataset.fps != fps:
+        raise ValueError(
+            f"The dataset fps should be equal to requested fps ({dataset.fps} != {fps})."
+        )
 
+    if policy is not None:
+        policy.reset()
+
+    timestamp = 0
+    
+    start_episode_t = time.perf_counter()
+    print("=== Dataset features keys ===")
+    print(sorted(dataset.features.keys()))
+    print("=== Robot action_features ===")
+    print(robot.action_features)
+
+    while timestamp < control_time_s:
+        start_loop_t = time.perf_counter()
+
+        # 1) Lire l’observation brute
+        observation = robot.get_observation()
+        print(">>> Raw observation keys:", list(observation.keys()))
+
+        # 2) Construire observation_frame à partir du schéma dataset.features
+        observation_frame = build_dataset_frame(
+            dataset.features, observation, prefix="observation"
+        )
+        print(">>> Observation frame keys(before):", list(observation_frame.keys()))
+
+        # 2a) Injecter l’état (dict -> np.ndarray)
+        state_dict = observation.get("observation.state")
+        if isinstance(state_dict, dict):
+            state_names = dataset.features["observation.state"]["names"]
+            state_array = np.array(
+                [state_dict[name] for name in state_names], dtype=np.float32
+            )
+            observation_frame["observation.state"] = state_array
+
+        # 2b) Injecter les images frontales et wrist
+        for cam in ("front", "wrist"):
+            key = f"observation.images.{cam}"
+            if key in observation:
+                observation_frame[key] = observation[key]
+
+        print(">>> Observation frame keys(after):", list(observation_frame.keys()))
+
+        # 3) Générer l’action via la policy ou le teleop
+        if policy is not None:
+            print(">>> Expected image features:", policy.config.image_features)
+            print(">>> Batch keys:", list(observation_frame.keys()))
+            action_values = predict_action(
+                observation_frame,
+                policy,
+                get_safe_torch_device(policy.config.device),
+                policy.config.use_amp,
+                task=single_task,
+                robot_type=robot.robot_type,
+            )
+            action = {
+                key: action_values[i].item()
+                for i, key in enumerate(robot.action_features)
+            }
+        else:
+            action = teleop.get_action()
+
+        # 4) Envoyer l’action au robot
+        sent_action = robot.send_action(action)
+
+        # 5) Construire et ajouter le frame d’action au dataset
+        if dataset is not None:
+            action_frame = build_dataset_frame(
+                dataset.features, sent_action, prefix="action"
+            )
+            frame = {**observation_frame, **action_frame}
+            print(">>> Final frame keys (ready to save):", sorted(frame.keys()))
+            dataset.add_frame(frame, task=single_task)
+
+        # 6) Affichage optionnel
+        if display_data:
+            for obs_key, val in observation.items():
+                if isinstance(val, float):
+                    rr.log(f"observation.{obs_key}", rr.Scalar(val))
+                elif isinstance(val, np.ndarray):
+                    rr.log(f"observation.{obs_key}", rr.Image(val), static=True)
+            for act_key, val in action.items():
+                if isinstance(val, float):
+                    rr.log(f"action.{act_key}", rr.Scalar(val))
+
+        # 7) Boucle tempo & sortie
+        dt_s = time.perf_counter() - start_loop_t
+        busy_wait(1 / fps - dt_s)
+        timestamp = time.perf_counter() - start_episode_t
+        if events["exit_early"]:
+            events["exit_early"] = False
+            break
+
+
+"""
 @safe_stop_image_writer
 def record_loop(
     robot: Robot,
@@ -234,7 +343,7 @@ def record_loop(
         if events["exit_early"]:
             events["exit_early"] = False
             break
-
+"""
 
 @parser.wrap()
 def record(cfg: RecordConfig) -> LeRobotDataset:

@@ -31,12 +31,12 @@ class LeKiwiConfig(RobotConfig):
     # Set this to a positive scalar to have the same value for all motors, or a list that is the same length as
     # the number of motors in your follower arms.
     max_relative_target: int | None = None
-
+    #"/dev/video0"  "/dev/video2"
     cameras: dict[str, CameraConfig] = field(
         default_factory=lambda: {
-            "front": OpenCVCameraConfig(index_or_path="/dev/video0", fps=30, width=640, height=480),
+            "front": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
             "wrist": OpenCVCameraConfig(
-                index_or_path="/dev/video2", fps=30, width=640, height=480, rotation=Cv2Rotation.ROTATE_180
+                index_or_path=2, fps=30, width=640, height=480, rotation=Cv2Rotation.ROTATE_180
             ),
         }
     )
