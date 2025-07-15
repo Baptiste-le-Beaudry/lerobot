@@ -162,7 +162,8 @@ class RecordConfig:
     def __get_path_fields__(cls) -> list[str]:
         """This enables the parser to load config from the policy using `--policy.path=local/dir`"""
         return ["policy"]
-
+    
+import cv2
 @safe_stop_image_writer
 def record_loop(
     robot: Robot,
@@ -171,106 +172,109 @@ def record_loop(
     dataset: LeRobotDataset | None = None,
     teleop: Teleoperator | None = None,
     policy: PreTrainedPolicy | None = None,
-    control_time_s: int | None = None,
+    control_time_s: float | None = None,
     single_task: str | None = None,
     display_data: bool = False,
-    ):
+):
+    # 0) Sanity check du fps
     if dataset is not None and dataset.fps != fps:
-        raise ValueError(
-            f"The dataset fps should be equal to requested fps ({dataset.fps} != {fps})."
-        )
+        raise ValueError(f"Dataset fps ({dataset.fps}) != requested fps ({fps})")
 
+    # Reset de la policy si utilisée
     if policy is not None:
         policy.reset()
 
-    timestamp = 0
-    
-    start_episode_t = time.perf_counter()
-    print("=== Dataset features keys ===")
-    print(sorted(dataset.features.keys()))
-    print("=== Robot action_features ===")
-    print(robot.action_features)
+    # Liste des joints d’état (6 dim)
+    joint_names = [
+        "shoulder_pan",
+        "shoulder_lift",
+        "elbow_flex",
+        "wrist_flex",
+        "wrist_roll",
+        "gripper",
+    ]
 
-    while timestamp < control_time_s:
-        start_loop_t = time.perf_counter()
+    t_start = time.perf_counter()
+    timestamp = 0.0
 
-        # 1) Lire l’observation brute
-        observation = robot.get_observation()
-        print(">>> Raw observation keys:", list(observation.keys()))
+    while timestamp < (control_time_s or float("inf")):
+        t0 = time.perf_counter()
 
-        # 2) Construire observation_frame à partir du schéma dataset.features
-        observation_frame = build_dataset_frame(
-            dataset.features, observation, prefix="observation"
+        # --- 1) Observation brute ---
+        raw_obs = robot.get_observation()
+        # raw_obs fournit keys: "<joint>.pos" pour chaque joint, "front" et "wrist" pour les images
+
+        # --- 2) Construction manuelle de l’observation ---
+        obs_frame: dict[str, np.ndarray] = {}
+
+        # 2a) état articulations (6 valeurs)
+        obs_frame["observation.state"] = np.array(
+            [ raw_obs[f"{j}.pos"] for j in joint_names ],
+            dtype=np.float32,
         )
-        print(">>> Observation frame keys(before):", list(observation_frame.keys()))
 
-        # 2a) Injecter l’état (dict -> np.ndarray)
-        state_dict = observation.get("observation.state")
-        if isinstance(state_dict, dict):
-            state_names = dataset.features["observation.state"]["names"]
-            state_array = np.array(
-                [state_dict[name] for name in state_names], dtype=np.float32
-            )
-            observation_frame["observation.state"] = state_array
+        # 2b) images frontales & pince
+        obs_frame["observation.images.front"] = raw_obs["front"]   # shape (480,640,3), RGB
+        obs_frame["observation.images.wrist"] = raw_obs["wrist"]   # idem
 
-        # 2b) Injecter les images frontales et wrist
-        for cam in ("front", "wrist"):
-            key = f"observation.images.{cam}"
-            if key in observation:
-                observation_frame[key] = observation[key]
+        # Debug visuel
+        cv2.imshow("Wrist Camera", cv2.cvtColor(obs_frame["observation.images.wrist"], cv2.COLOR_RGB2BGR))
+        cv2.waitKey(1)
 
-        print(">>> Observation frame keys(after):", list(observation_frame.keys()))
-
-        # 3) Générer l’action via la policy ou le teleop
+        # --- 3) Génération de l’action ---
         if policy is not None:
-            print(">>> Expected image features:", policy.config.image_features)
-            print(">>> Batch keys:", list(observation_frame.keys()))
             action_values = predict_action(
-                observation_frame,
+                obs_frame,
                 policy,
                 get_safe_torch_device(policy.config.device),
                 policy.config.use_amp,
                 task=single_task,
                 robot_type=robot.robot_type,
             )
-            action = {
-                key: action_values[i].item()
-                for i, key in enumerate(robot.action_features)
-            }
+            # robot.action_features donne la liste dans l’ordre
+            action = { k: action_values[i].item() for i, k in enumerate(robot.action_features) }
         else:
             action = teleop.get_action()
 
-        # 4) Envoyer l’action au robot
+        # Assurer que x.vel, y.vel, theta.vel sont toujours présents
+        for _k in ("x.vel", "y.vel", "theta.vel"):
+            action.setdefault(_k, 0.0)
+
+        # --- 4) Remapping joint names ↔ arm_… en fonction du robot ---
+        fixed = {}
+        for fullname, v in action.items():
+            name, suf = fullname.split(".", 1)
+            # si c'est un joint du bras (6 dims), on ajoute ou enlève `arm_`
+            if name in joint_names:
+                if robot.name in ("so100_follower", "lekiwi"):
+                    # SO100/LeKiwi attend "arm_shoulder_pan", …
+                    if not name.startswith("arm_"):
+                        name = "arm_" + name
+                else:
+                    # SO101 attend "shoulder_pan", …
+                    if name.startswith("arm_"):
+                        name = name[len("arm_"):]
+            fixed[f"{name}.{suf}"] = v
+        action = fixed
+
+        # --- 5) Envoi de la commande au robot ---
         sent_action = robot.send_action(action)
 
-        # 5) Construire et ajouter le frame d’action au dataset
+        # --- 6) Enregistrement dans le dataset ---
         if dataset is not None:
-            action_frame = build_dataset_frame(
-                dataset.features, sent_action, prefix="action"
-            )
-            frame = {**observation_frame, **action_frame}
-            print(">>> Final frame keys (ready to save):", sorted(frame.keys()))
+            # on n'utilise build_dataset_frame que pour l’action (état & images déjà ok)
+            act_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
+            frame = { **obs_frame, **act_frame }
             dataset.add_frame(frame, task=single_task)
 
-        # 6) Affichage optionnel
-        if display_data:
-            for obs_key, val in observation.items():
-                if isinstance(val, float):
-                    rr.log(f"observation.{obs_key}", rr.Scalar(val))
-                elif isinstance(val, np.ndarray):
-                    rr.log(f"observation.{obs_key}", rr.Image(val), static=True)
-            for act_key, val in action.items():
-                if isinstance(val, float):
-                    rr.log(f"action.{act_key}", rr.Scalar(val))
+        # --- 7) Timing et sortie ---
+        dt = time.perf_counter() - t0
+        busy_wait(max(0.0, 1.0 / fps - dt))
+        timestamp = time.perf_counter() - t_start
 
-        # 7) Boucle tempo & sortie
-        dt_s = time.perf_counter() - start_loop_t
-        busy_wait(1 / fps - dt_s)
-        timestamp = time.perf_counter() - start_episode_t
-        if events["exit_early"]:
-            events["exit_early"] = False
+        if events.get("exit_early", False):
+            cv2.destroyAllWindows()
             break
-
 
 """
 @safe_stop_image_writer
@@ -352,9 +356,14 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     if cfg.display_data:
         _init_rerun(session_name="recording")
 
+    """
     robot = make_robot_from_config(cfg.robot)
-    from lerobot.common.robots.lekiwi import LeKiwi
+    from lerobot.common.robots.lekiwi import LeKiwi ##################sert a utiliser lekiwi
     robot = LeKiwi(cfg.robot)
+    """
+
+    robot = make_robot_from_config(cfg.robot)   #################sert a utiliser so100
+
 
     teleop = make_teleoperator_from_config(cfg.teleop) if cfg.teleop is not None else None
 

@@ -375,39 +375,46 @@ class OpenCVCamera(Camera):
         return processed_frame
     
     def _postprocess_image(self, image: np.ndarray, color_mode: ColorMode | None = None) -> np.ndarray:
+        """
+        Post-traitement d’une image brute OpenCV :
+        - Vérifie dimensions et nombre de canaux
+        - Convertit en RGB si demandé
+        - Applique la rotation configurée (si différente de NO_ROTATION)
+        """
+        # 1) Choix du mode couleur
         requested_color_mode = self.color_mode if color_mode is None else color_mode
-
         if requested_color_mode not in (ColorMode.RGB, ColorMode.BGR):
             raise ValueError(
                 f"Invalid color mode '{requested_color_mode}'. Expected {ColorMode.RGB} or {ColorMode.BGR}."
             )
 
+        # 2) Vérification de la taille et du nombre de canaux
         h, w, c = image.shape
-
-        # 🛠️ AUTO-ROTATION SI NÉCESSAIRE
-        if h == self.capture_width and w == self.capture_height:
-            image = cv2.rotate(image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            h, w = image.shape[:2]  # Recalcule la taille après rotation
-
-        # ✅ Validation des dimensions
-        if h != self.capture_height or w != self.capture_width:
+        if (h, w) != (self.capture_height, self.capture_width):
             raise RuntimeError(
-                f"{self} frame width={w} or height={h} do not match configured width={self.capture_width} or height={self.capture_height}."
+                f"{self}: frame size is {w}×{h}, expected {self.capture_width}×{self.capture_height}."
+            )
+        if c != 3:
+            raise RuntimeError(
+                f"{self}: frame has {c} channels, expected 3."
             )
 
-        if c != 3:
-            raise RuntimeError(f"{self} frame channels={c} do not match expected 3 channels (RGB/BGR).")
-
-        # 🎨 Conversion de couleurs si demandé
-        processed_image = image
+        # 3) Conversion en RGB si nécessaire
+        processed = image
         if requested_color_mode == ColorMode.RGB:
-            processed_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            processed = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            
+        from lerobot.common.cameras.configs import Cv2Rotation
+        # 4) Rotation explicite (uniquement si configurée)
+        if self.rotation == Cv2Rotation.ROTATE_90:
+            processed = cv2.rotate(processed, cv2.ROTATE_90_CLOCKWISE)
+        elif self.rotation == Cv2Rotation.ROTATE_180:
+            processed = cv2.rotate(processed, cv2.ROTATE_180)
+        elif self.rotation == Cv2Rotation.ROTATE_270:
+            processed = cv2.rotate(processed, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        # else Cv2Rotation.NO_ROTATION → on ne touche pas à processed
 
-        # ↪️ Rotation supplémentaire si configurée
-        if self.rotation in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
-            processed_image = cv2.rotate(processed_image, self.rotation)
-
-        return processed_image
+        return processed
 
 
 
