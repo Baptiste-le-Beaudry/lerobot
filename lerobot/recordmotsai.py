@@ -171,7 +171,8 @@ def record_loop(
     fps: int,
     dataset: LeRobotDataset | None = None,
     teleop: Teleoperator | None = None,
-    policy: PreTrainedPolicy | None = None,
+    policy1: PreTrainedPolicy | None = None,
+    policy2: PreTrainedPolicy | None = None,
     control_time_s: float | None = None,
     single_task: str | None = None,
     display_data: bool = False,
@@ -181,8 +182,8 @@ def record_loop(
         raise ValueError(f"Dataset fps ({dataset.fps}) != requested fps ({fps})")
 
     # Reset de la policy si utilisée
-    if policy is not None:
-        policy.reset()
+    if policy1 is not None:
+        policy1.reset()
 
     # Liste des joints d’état (6 dim)
     joint_names = [
@@ -213,21 +214,60 @@ def record_loop(
             dtype=np.float32,
         )
 
+
+        # Avant d’entrer dans la boucle, initialise ces variables
+        SEUIL_MOUVEMENT = 0.2   # radians
+        DUREE_IMMOBILE = 3.0    # secondes
+
+        dernier_state = None
+        dernier_temps_mouvement = time.time()
+        current_policy = policy1  # commence avec la première policy
+
+        # … puis dans ta boucle, juste après avoir construit obs_frame et extrait `state` :
+        state = obs_frame["observation.state"]
+
+        # 1) Initialisation au premier pas
+        if dernier_state is None:
+            dernier_state = state.copy()
+            dernier_temps_mouvement = time.time()
+
+        # 2) Vérifier s’il y a du mouvement
+        variations = np.abs(state - dernier_state)
+        if np.all(variations < SEUIL_MOUVEMENT):
+            # pas de mouvement significatif → voir depuis combien de temps
+            if time.time() - dernier_temps_mouvement > DUREE_IMMOBILE:
+                # 3s sans bouger → switch de policy
+                if current_policy is policy1:
+                    print("🔁 Passage à policy2")
+                    current_policy = policy2
+                else:
+                    print("🔁 Retour à policy1")
+                    current_policy = policy1
+                # on réinitialise pour ne pas switcher en boucle
+                dernier_temps_mouvement = time.time()
+                dernier_state = state.copy()
+        else:
+            # il y a eu du mouvement → reset du timer et de l’état de comparaison
+            dernier_temps_mouvement = time.time()
+            dernier_state = state.copy()
+        
+
         # 2b) images frontales & pince
         obs_frame["observation.images.front"] = raw_obs["front"]   # shape (480,640,3), RGB
         obs_frame["observation.images.wrist"] = raw_obs["wrist"]   # idem
 
         # Debug visuel
         cv2.imshow("Wrist Camera", cv2.cvtColor(obs_frame["observation.images.wrist"], cv2.COLOR_RGB2BGR))
+        cv2.imshow("Wrist Camera", cv2.cvtColor(obs_frame["observation.images.front"], cv2.COLOR_RGB2BGR))
         cv2.waitKey(1)
 
         # --- 3) Génération de l’action ---
-        if policy is not None:
+        if current_policy is not None:
             action_values = predict_action(
                 obs_frame,
-                policy,
-                get_safe_torch_device(policy.config.device),
-                policy.config.use_amp,
+                current_policy,
+                get_safe_torch_device(current_policy.config.device),
+                current_policy.config.use_amp,
                 task=single_task,
                 robot_type=robot.robot_type,
             )
@@ -264,7 +304,7 @@ def record_loop(
                         name = name[len("arm_"):]
             fixed[f"{name}.{suf}"] = v
         action = fixed
-        # action: Dict[str, float] renvoyé par la policy#################################a enlee si on veux utiliser lekiwi
+        # action: Dict[str, float] renvoyé par la policy################################# a enlee si on veux utiliser lekiwi
         action = {
             motor_name.replace("arm_", ""): value
             for motor_name, value in action.items()
@@ -290,78 +330,7 @@ def record_loop(
             cv2.destroyAllWindows()
             break
 
-"""
-@safe_stop_image_writer
-def record_loop(
-    robot: Robot,
-    events: dict,
-    fps: int,
-    dataset: LeRobotDataset | None = None,
-    teleop: Teleoperator | None = None,
-    policy: PreTrainedPolicy | None = None,
-    control_time_s: int | None = None,
-    single_task: str | None = None,
-    display_data: bool = False,
-):
-    if dataset is not None and dataset.fps != fps:
-        raise ValueError(f"The dataset fps should be equal to requested fps ({dataset.fps} != {fps}).")
 
-    # if policy is given it needs cleaning up
-    if policy is not None:
-        policy.reset()
-
-    timestamp = 0
-    start_episode_t = time.perf_counter()
-    while timestamp < control_time_s:
-        start_loop_t = time.perf_counter()
-
-        observation = robot.get_observation()
-
-        if policy is not None or dataset is not None:
-            observation_frame = build_dataset_frame(dataset.features, observation, prefix="observation")
-
-        if policy is not None:
-            print(">>> Expected image features:", policy.config.image_features)
-            print(">>> Batch keys:", list(observation_frame.keys()))
-            action_values = predict_action(
-                observation_frame,
-                policy,
-                get_safe_torch_device(policy.config.device),
-                policy.config.use_amp,
-                task=single_task,
-                robot_type=robot.robot_type,
-            )
-            action = {key: action_values[i].item() for i, key in enumerate(robot.action_features)}
-        else:
-            action = teleop.get_action()
-
-        # Action can eventually be clipped using `max_relative_target`,
-        # so action actually sent is saved in the dataset.
-        sent_action = robot.send_action(action)
-
-        if dataset is not None:
-            action_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
-            frame = {**observation_frame, **action_frame}
-            dataset.add_frame(frame, task=single_task)
-
-        if display_data:
-            for obs, val in observation.items():
-                if isinstance(val, float):
-                    rr.log(f"observation.{obs}", rr.Scalar(val))
-                elif isinstance(val, np.ndarray):
-                    rr.log(f"observation.{obs}", rr.Image(val), static=True)
-            for act, val in action.items():
-                if isinstance(val, float):
-                    rr.log(f"action.{act}", rr.Scalar(val))
-
-        dt_s = time.perf_counter() - start_loop_t
-        busy_wait(1 / fps - dt_s)
-
-        timestamp = time.perf_counter() - start_episode_t
-        if events["exit_early"]:
-            events["exit_early"] = False
-            break
-"""
 
 @parser.wrap()
 def record(cfg: RecordConfig) -> LeRobotDataset:
@@ -479,3 +448,79 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
 
 if __name__ == "__main__":
     record()
+
+
+
+
+"""
+@safe_stop_image_writer
+def record_loop(
+    robot: Robot,
+    events: dict,
+    fps: int,
+    dataset: LeRobotDataset | None = None,
+    teleop: Teleoperator | None = None,
+    policy: PreTrainedPolicy | None = None,
+    control_time_s: int | None = None,
+    single_task: str | None = None,
+    display_data: bool = False,
+):
+    if dataset is not None and dataset.fps != fps:
+        raise ValueError(f"The dataset fps should be equal to requested fps ({dataset.fps} != {fps}).")
+
+    # if policy is given it needs cleaning up
+    if policy is not None:
+        policy.reset()
+
+    timestamp = 0
+    start_episode_t = time.perf_counter()
+    while timestamp < control_time_s:
+        start_loop_t = time.perf_counter()
+
+        observation = robot.get_observation()
+
+        if policy is not None or dataset is not None:
+            observation_frame = build_dataset_frame(dataset.features, observation, prefix="observation")
+
+        if policy is not None:
+            print(">>> Expected image features:", policy.config.image_features)
+            print(">>> Batch keys:", list(observation_frame.keys()))
+            action_values = predict_action(
+                observation_frame,
+                policy,
+                get_safe_torch_device(policy.config.device),
+                policy.config.use_amp,
+                task=single_task,
+                robot_type=robot.robot_type,
+            )
+            action = {key: action_values[i].item() for i, key in enumerate(robot.action_features)}
+        else:
+            action = teleop.get_action()
+
+        # Action can eventually be clipped using `max_relative_target`,
+        # so action actually sent is saved in the dataset.
+        sent_action = robot.send_action(action)
+
+        if dataset is not None:
+            action_frame = build_dataset_frame(dataset.features, sent_action, prefix="action")
+            frame = {**observation_frame, **action_frame}
+            dataset.add_frame(frame, task=single_task)
+
+        if display_data:
+            for obs, val in observation.items():
+                if isinstance(val, float):
+                    rr.log(f"observation.{obs}", rr.Scalar(val))
+                elif isinstance(val, np.ndarray):
+                    rr.log(f"observation.{obs}", rr.Image(val), static=True)
+            for act, val in action.items():
+                if isinstance(val, float):
+                    rr.log(f"action.{act}", rr.Scalar(val))
+
+        dt_s = time.perf_counter() - start_loop_t
+        busy_wait(1 / fps - dt_s)
+
+        timestamp = time.perf_counter() - start_episode_t
+        if events["exit_early"]:
+            events["exit_early"] = False
+            break
+"""

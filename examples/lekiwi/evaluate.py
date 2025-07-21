@@ -11,7 +11,7 @@ robot = LeKiwiClient(robot_config)
 
 robot.connect()
 
-policy = ACTPolicy.from_pretrained("pepijn223/act_lekiwi_circle")
+policy = ACTPolicy.from_pretrained("Baptiste-le-Beaudry/act_teleop_take_lego")
 policy.reset()
 
 obs_features = hw_to_dataset_features(robot.observation_features, "observation")
