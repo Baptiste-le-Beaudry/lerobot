@@ -1,118 +1,101 @@
-import time
-import cv2
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from lerobot.common.datasets.utils import hw_to_dataset_features
-from lerobot.common.robots.lekiwi.config_lekiwi import LeKiwiClientConfig
-from lerobot.common.robots.lekiwi.lekiwi_client import LeKiwiClient
-from lerobot.common.teleoperators.keyboard import KeyboardTeleop, KeyboardTeleopConfig
-from lerobot.common.teleoperators.so100_leader import SO100Leader, SO100LeaderConfig
-import numpy as np
-NB_CYCLES_CLIENT_CONNECTION = 250
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.datasets.utils import hw_to_dataset_features
+from lerobot.record import record_loop
+from lerobot.robots.lekiwi.config_lekiwi import LeKiwiClientConfig
+from lerobot.robots.lekiwi.lekiwi_client import LeKiwiClient
+from lerobot.teleoperators.keyboard import KeyboardTeleop, KeyboardTeleopConfig
+from lerobot.teleoperators.so100_leader import SO100Leader, SO100LeaderConfig
+from lerobot.utils.control_utils import init_keyboard_listener
+from lerobot.utils.utils import log_say
+from lerobot.utils.visualization_utils import _init_rerun
 
-leader_arm_config = SO100LeaderConfig(port="COM12")
-leader_arm = SO100Leader(leader_arm_config)
+NUM_EPISODES = 3
+FPS = 30
+EPISODE_TIME_SEC = 30
+RESET_TIME_SEC = 10
+TASK_DESCRIPTION = "My task description"
 
+# Create the robot and teleoperator configurations
+robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="lekiwi")
+leader_arm_config = SO100LeaderConfig(port="/dev/tty.usbmodem585A0077581", id="my_awesome_leader_arm")
 keyboard_config = KeyboardTeleopConfig()
+
+robot = LeKiwiClient(robot_config)
+leader_arm = SO100Leader(leader_arm_config)
 keyboard = KeyboardTeleop(keyboard_config)
 
-robot_config = LeKiwiClientConfig(remote_ip="192.168.100.151", id="lekiwi")
-robot = LeKiwiClient(robot_config)
-
+# Configure the dataset features
 action_features = hw_to_dataset_features(robot.action_features, "action")
 obs_features = hw_to_dataset_features(robot.observation_features, "observation")
 dataset_features = {**action_features, **obs_features}
 
-
-
-
+# Create the dataset
 dataset = LeRobotDataset.create(
-    repo_id="Baptiste-le-Beaudry/lerobot-dataset" + str(int(time.time())),
-    fps=10,
+    repo_id="<hf_username>/<dataset_repo_id>",
+    fps=FPS,
     features=dataset_features,
     robot_type=robot.name,
+    use_videos=True,
+    image_writer_threads=4,
 )
 
+# To connect you already should have this script running on LeKiwi: `python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=my_awesome_kiwi`
+robot.connect()
 leader_arm.connect()
 keyboard.connect()
-robot.connect()
+
+_init_rerun(session_name="lekiwi_record")
+
+listener, events = init_keyboard_listener()
 
 if not robot.is_connected or not leader_arm.is_connected or not keyboard.is_connected:
-    exit()
+    raise ValueError("Robot, leader arm of keyboard is not connected!")
 
-print("Starting LeKiwi teleoperation")
-i = 0
-while i < NB_CYCLES_CLIENT_CONNECTION:
-    arm_action = leader_arm.get_action()
-    arm_action = {f"arm_{k}": v for k, v in arm_action.items()}
+recorded_episodes = 0
+while recorded_episodes < NUM_EPISODES and not events["stop_recording"]:
+    log_say(f"Recording episode {recorded_episodes}")
 
-    keyboard_keys = keyboard.get_action()
+    # Run the record loop
+    record_loop(
+        robot=robot,
+        events=events,
+        fps=FPS,
+        dataset=dataset,
+        teleop=[leader_arm, keyboard],
+        control_time_s=EPISODE_TIME_SEC,
+        single_task=TASK_DESCRIPTION,
+        display_data=True,
+    )
 
-    base_action = robot._from_keyboard_to_base_action(keyboard_keys)
+    # Logic for reset env
+    if not events["stop_recording"] and (
+        (recorded_episodes < NUM_EPISODES - 1) or events["rerecord_episode"]
+    ):
+        log_say("Reset the environment")
+        record_loop(
+            robot=robot,
+            events=events,
+            fps=FPS,
+            teleop=[leader_arm, keyboard],
+            control_time_s=RESET_TIME_SEC,
+            single_task=TASK_DESCRIPTION,
+            display_data=True,
+        )
 
-    action = {**arm_action, **base_action} if len(base_action) > 0 else arm_action
+    if events["rerecord_episode"]:
+        log_say("Re-record episode")
+        events["rerecord_episode"] = False
+        events["exit_early"] = False
+        dataset.clear_episode_buffer()
+        continue
 
-    action_sent = robot.send_action(action)
-    observation = robot.get_observation()
+    dataset.save_episode()
+    recorded_episodes += 1
 
+# Upload to hub and clean up
+dataset.push_to_hub()
 
-    task = "center_over_block_4"
-
-    ######
-    # Construis le dictionnaire `frame` sans imbriquer `observation`
-    
-    frame = {**action_sent, **observation}
-
-    # Nom “plat” de la clé pour l’image du poignet
-    wrist_key = "observation.images.wrist"
-
-    # Sécurité : vérifier que l'image existe
-    if wrist_key not in frame:
-        print("❌ L'image 'wrist' est introuvable dans le frame.")
-        print(f"Clés disponibles : {list(frame.keys())}")
-        exit(1)
-
-    # Récupère l'image (Tensor ou ndarray)
-    wrist_img = frame[wrist_key]
-    # Si c'est un tensor PyTorch, convertis en ndarray
-    if hasattr(wrist_img, "numpy"):
-        wrist_img = wrist_img.numpy()
-    # Corriger l'orientation si besoin
-    if wrist_img.shape == (480, 640, 3):
-        wrist_img = cv2.rotate(wrist_img, cv2.ROTATE_90_COUNTERCLOCKWISE)
-    elif wrist_img.shape == (480, 3, 640):
-        wrist_img = np.transpose(wrist_img, (0, 2, 1))
-    # Remplace l'image dans le frame
-    frame[wrist_key] = wrist_img
-    front_key = "observation.images.front"
-    if front_key in frame:
-        front_img = frame[front_key]
-
-        if hasattr(front_img, "numpy"):
-            front_img = front_img.numpy()
-
-    # 🔄 Corrige la forme si nécessaire
-        if front_img.shape == (640, 480, 3):
-            front_img = np.transpose(front_img, (1, 0, 2))  # (H, W, C) = (480, 640, 3)
-        elif front_img.shape == (480, 3, 640):
-            front_img = np.transpose(front_img, (0, 2, 1))
-        elif front_img.shape == (480, 640, 3):
-            pass  # bon format
-        else:
-            print(f"❌ Format inattendu pour front_img: {front_img.shape}")
-            exit(1)
-
-    frame[front_key] = front_img
-
-
-    # Ajoute la frame au dataset
-    dataset.add_frame(frame, task)
-    i += 1
-
-print("Disconnecting Teleop Devices and LeKiwi Client")
 robot.disconnect()
 leader_arm.disconnect()
 keyboard.disconnect()
-
-print("Uploading dataset to the hub")
-dataset.save_episode()
-dataset.push_to_hub()
+listener.stop()

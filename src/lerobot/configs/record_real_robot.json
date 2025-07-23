@@ -1,0 +1,64 @@
+{
+  "type": "gym_manipulator",
+  "robot": {
+    "type": "so100_follower_end_effector",
+    "port": "COM13",
+    "urdf_path": null,
+    "target_frame_name": "gripper_frame_link",
+    "cameras": {
+      "front": {
+        "type": "opencv",
+        "index_or_path": 2,
+        "width": 640,
+        "height": 480,
+        "fps": 10
+      },
+      "wrist": {
+        "type": "opencv",
+        "index_or_path": 0,
+        "width": 640,
+        "height": 480,
+        "fps": 10
+      }
+    },
+    "end_effector_bounds": {
+      "min": [-1.0, -1.0, -1.0],
+      "max": [1.0, 1.0, 1.0]
+    },
+    "end_effector_step_sizes": {
+      "x": 0.02,
+      "y": 0.02,
+      "z": 0.02
+    }
+  },
+  "teleop": {
+    "type": "so100_leader",
+    "port": "COM4",
+    "use_degrees": true
+  },
+  "wrapper": {
+    "display_cameras": false,
+    "add_joint_velocity_to_observation": true,
+    "add_current_to_observation": true,
+    "add_ee_pose_to_observation": true,
+    "crop_params_dict": null,
+    "resize_size": [128, 128],
+    "control_time_s": 20.0,
+    "reset_time_s": 2.5,
+    "fixed_reset_joint_positions": [0.0, 0.0, 0.0, 90.0, 0.0, 5.0],
+    "control_mode": "leader"
+  },
+  "name": "real_robot",
+  "mode": "record",
+  "repo_id": "Baptiste-le-Beaudry/teleop_take_lego",
+  "dataset_root": null,
+  "task": "take_blue_lego",
+  "num_episodes": 50,
+  "episode": 0,
+  "pretrained_policy_name_or_path": null,
+  "reward_classifier_pretrained_path": null,
+  "number_of_steps_after_success": 10,
+  "device": "cuda",
+  "push_to_hub": true,
+  "fps": 10
+}
