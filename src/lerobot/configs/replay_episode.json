@@ -1,0 +1,12 @@
+{
+  "type": "gym_manipulator",
+  "robot": { "type": "so100_follower", "port": "COM13", "id": "lekiwi" },
+  "teleop": null,
+  "wrapper": { "display_cameras": true, "control_mode": "policy" },
+  "mode": "replay",
+  "repo_id": "Baptiste-le-Beaudry/teleop_take_lego",
+  "dataset_root": null,
+  "episode": 0,
+  "device": "cpu",
+  "fps": 10
+}
