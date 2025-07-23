@@ -4,7 +4,7 @@
     "type": "so100_follower_end_effector",
     "port": "COM13",
     "id": "motsaikiwi",
-    "urdf_path": "src/lerobot/configs/so100_minimal.urdf",
+    "urdf_path": "SO-ARM100/Simulation/SO100",
     "end_effector_bounds": {
       "min": [0.0, -0.25, 0.0],
       "max": [0.5, 0.25, 0.5]
