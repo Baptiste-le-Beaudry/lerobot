@@ -296,5 +296,13 @@
       <mechanicalReduction>1</mechanicalReduction>
     </actuator>
   </transmission>
+    <!-- Dummy frame for end effector reference -->
+  <link name="gripper_frame_link"/>
+
+  <joint name="gripper_to_frame" type="fixed">
+    <parent link="jaw"/>
+    <child link="gripper_frame_link"/>
+    <origin xyz="0 0 0.05" rpy="0 0 0"/>
+  </joint>
 
 </robot> 

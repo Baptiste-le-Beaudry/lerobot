@@ -3,7 +3,7 @@
   "robot": {
     "type": "so100_follower_end_effector",
     "port": "COM13",
-    "urdf_path": null,
+    "urdf_path": "SO-ARM100/Simulation/SO100/so100.urdf",
     "target_frame_name": "gripper_frame_link",
     "cameras": {
       "front": {
