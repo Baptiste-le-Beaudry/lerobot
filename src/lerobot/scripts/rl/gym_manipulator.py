@@ -1298,7 +1298,9 @@ class BaseLeaderControlWrapper(gym.Wrapper):
         This method synchronizes the leader robot position with the follower.
         """
 
-        prev_leader_pos_dict = self.robot_leader.bus.sync_read("Present_Position")
+        prev_leader_pos_dict = self.robot_leader.bus.sync_read("Present_Position")   
+        print(">>> DEBUG Leader raw positions:", prev_leader_pos_dict)
+    
         prev_leader_pos = np.array(
             [prev_leader_pos_dict[name] for name in prev_leader_pos_dict], dtype=np.float32
         )
@@ -1312,7 +1314,7 @@ class BaseLeaderControlWrapper(gym.Wrapper):
 
         goal_pos = {f"{motor}": follower_pos[i] for i, motor in enumerate(self.robot_leader.bus.motors)}
         self.robot_leader.bus.sync_write("Goal_Position", goal_pos)
-
+        
         self.leader_tracking_error_queue.append(np.linalg.norm(follower_pos[:-1] - prev_leader_pos[:-1]))
 
     def step(self, action):
@@ -1356,6 +1358,8 @@ class BaseLeaderControlWrapper(gym.Wrapper):
         if success:
             reward = 1.0
             logging.info("Episode ended successfully with reward 1.0")
+        print(">>> DEBUG BaseLeaderControlWrapper - leader_pose:", action)
+        print(">>> DEBUG BaseLeaderControlWrapper - sending action:", reward)
 
         return obs, reward, terminated, truncated, info
 
@@ -1510,6 +1514,7 @@ class GearedLeaderAutomaticControlWrapper(BaseLeaderControlWrapper):
             return False
 
         # If not change has happened that merits a change in the intervention state, return the current state
+        
         return self.is_intervention_active
 
     def reset(self, **kwargs):

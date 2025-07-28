@@ -41,6 +41,10 @@ def make_robot_from_config(config: RobotConfig) -> Robot:
         from .lekiwi import LeKiwi
 
         return LeKiwi(config)
+    elif config.type == "lekiwi_client":
+        from .lekiwi import LeKiwiClient
+
+        return LeKiwiClient(config)
     elif config.type == "stretch3":
         from .stretch3 import Stretch3Robot
 

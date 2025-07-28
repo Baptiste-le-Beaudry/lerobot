@@ -126,7 +126,7 @@ class DatasetRecordConfig:
     # Number of seconds for data recording for each episode.
     episode_time_s: int | float = 60
     # Number of seconds for resetting the environment after each episode.
-    reset_time_s: int | float = 60
+    reset_time_s: int | float = 3
     # Number of episodes to record.
     num_episodes: int = 50
     # Encode frames in the dataset into video
@@ -258,6 +258,7 @@ def record_loop(
             base_action = robot._from_keyboard_to_base_action(keyboard_action)
 
             action = {**arm_action, **base_action} if len(base_action) > 0 else arm_action
+
         else:
             logging.info(
                 "No policy or teleoperator provided, skipping action generation."
