@@ -85,6 +85,7 @@ from lerobot.robots import (  # noqa: F401
     make_robot_from_config,
     so100_follower,
     so101_follower,
+    lekiwi,
 )
 from lerobot.teleoperators import (  # noqa: F401
     Teleoperator,
@@ -95,7 +96,10 @@ from lerobot.teleoperators import (  # noqa: F401
     make_teleoperator_from_config,
     so100_leader,
     so101_leader,
+    keyboard,
 )
+from lerobot.robots.lekiwi import lekiwi_client
+
 from lerobot.teleoperators.keyboard.teleop_keyboard import KeyboardTeleop
 from lerobot.utils.control_utils import (
     init_keyboard_listener,
@@ -157,7 +161,7 @@ class DatasetRecordConfig:
 
 @dataclass
 class RecordConfig:
-    robot: RobotConfig
+    #robot: RobotConfig
     dataset: DatasetRecordConfig
     # Whether to control the robot with a teleoperator
     teleop: TeleoperatorConfig | None = None
@@ -178,8 +182,8 @@ class RecordConfig:
             self.policy = PreTrainedConfig.from_pretrained(policy_path, cli_overrides=cli_overrides)
             self.policy.pretrained_path = policy_path
 
-        if self.teleop is None and self.policy is None:
-            raise ValueError("Choose a policy, a teleoperator or both to control the robot")
+        #if self.teleop is None and self.policy is None:
+            #raise ValueError("Choose a policy, a teleoperator or both to control the robot")
 
     @classmethod
     def __get_path_fields__(cls) -> list[str]:
@@ -291,7 +295,52 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     logging.info(pformat(asdict(cfg)))
     if cfg.display_data:
         _init_rerun(session_name="recording")
+
+    from lerobot.robots import RobotConfig
     
+
+
+    #'[{\"type\": \"so100_leader\", \"port\": \"COM4\", \"id\": \"motsaileader\"}, {\"type\": \"keyboard\"}]' 
+    from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig, ColorMode, Cv2Rotation
+    from lerobot.robots.lekiwi.config_lekiwi import LeKiwiClientConfig
+    from lerobot.teleoperators.so100_leader.config_so100_leader import SO100LeaderConfig
+    from lerobot.teleoperators.keyboard.configuration_keyboard import KeyboardTeleopConfig
+    import zmq
+    cfg.robot = LeKiwiClientConfig(
+        id="motsaikiwi",
+        calibration_dir=None,
+        remote_ip="192.168.100.151",
+        cameras={
+            "front": OpenCVCameraConfig(
+                fps=30,
+                width=640,
+                height=480,
+                index_or_path=1,
+                color_mode=ColorMode.RGB,
+                rotation=Cv2Rotation.NO_ROTATION,
+                warmup_s=1,
+            ),
+            "wrist": OpenCVCameraConfig(
+                fps=30,
+                width=640,
+                height=480,
+                index_or_path=0,
+                color_mode=ColorMode.RGB,
+                rotation=Cv2Rotation.NO_ROTATION,
+                warmup_s=1,
+            ),
+        },
+    )
+
+    cfg.teleop = [
+        SO100LeaderConfig(id="motsaileader", port="COM4", calibration_dir=None),
+        KeyboardTeleopConfig( id="clavier",calibration_dir=None, mock=False )
+    ]
+    
+    #cfg.robot=SO100FollowerConfig(id='motsaikiwi', calibration_dir=None, port='COM3', disable_torque_on_disconnect=True, max_relative_target=None, cameras={'front': OpenCVCameraConfig(fps=30, width=640, height=480, index_or_path=1, color_mode=<ColorMode.RGB: 'rgb'>, rotation=<Cv2Rotation.NO_ROTATION: 0>, warmup_s=1), 'wrist': OpenCVCameraConfig(fps=30, width=640, height=480, index_or_path=0, color_mode=<ColorMode.RGB: 'rgb'>, rotation=<Cv2Rotation.NO_ROTATION: 0>, warmup_s=1)}, use_degrees=False)
+    #SO100LeaderConfig(id='motsaileader', calibration_dir=None, port='COM4')
+
+
     robot = make_robot_from_config(cfg.robot)
     teleop = make_teleoperator_from_config(cfg.teleop) if cfg.teleop is not None else None
 

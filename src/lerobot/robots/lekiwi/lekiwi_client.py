@@ -50,7 +50,7 @@ class LeKiwiClient(Robot):
 
         self.polling_timeout_ms = config.polling_timeout_ms
         self.connect_timeout_s = config.connect_timeout_s
-
+        self.cameras = config.cameras
         self.zmq_context = None
         self.zmq_cmd_socket = None
         self.zmq_observation_socket = None

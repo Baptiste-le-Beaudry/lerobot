@@ -54,7 +54,8 @@ class KeyboardTeleop(Teleoperator):
         super().__init__(config)
         self.config = config
         self.robot_type = config.type
-
+        #self.id=config.id | None
+        #self.calibration_dir=None
         self.event_queue = Queue()
         self.current_pressed = {}
         self.listener = None

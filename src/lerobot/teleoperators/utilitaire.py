@@ -14,25 +14,10 @@
 
 from .config import TeleoperatorConfig
 from .teleoperator import Teleoperator
-from typing import Union, List
 
-def make_teleoperator_from_config(config: TeleoperatorConfig|list[TeleoperatorConfig]) -> Teleoperator|list[TeleoperatorConfig]:
-    if isinstance(config, list):
-        from .so100_leader import SO100Leader
-        from .keyboard import KeyboardTeleop
 
-        teleops = []
-        for t in config:
-            if t.type == "so100_leader":
-                teleops.append(SO100Leader(t))       # ← on passe t et non config
-            elif t.type == "keyboard":
-                teleops.append(KeyboardTeleop(t))     # ← on passe t et non config
-            else:
-                raise ValueError(f"Téléopérateur inconnu : {t.type}")
-        return teleops
-
-    
-    elif config.type == "keyboard":
+def make_teleoperator_from_config(config: TeleoperatorConfig|list[Teleoperator]):
+    if config.type == "keyboard":
         from .keyboard import KeyboardTeleop
 
         return KeyboardTeleop(config)
@@ -80,6 +65,9 @@ def make_teleoperator_from_config(config: TeleoperatorConfig|list[TeleoperatorCo
         from .bi_so100_leader import BiSO100Leader
 
         return BiSO100Leader(config)
-    
+    elif isinstance(config, list):
+
+
+
     else:
         raise ValueError(config.type)

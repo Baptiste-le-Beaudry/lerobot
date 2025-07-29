@@ -292,9 +292,16 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     if cfg.display_data:
         _init_rerun(session_name="recording")
 
+    print("[1DEBUG]")
+    print(cfg.robot)
     robot = make_robot_from_config(cfg.robot)
+    print("[2DEBUG]")
+    print(robot)
+    print("[3DEBUG]")
+    print(cfg.teleop)
     teleop = make_teleoperator_from_config(cfg.teleop) if cfg.teleop is not None else None
-
+    print("4[DEBUG]")
+    print(teleop)
     action_features = hw_to_dataset_features(robot.action_features, "action", cfg.dataset.video)
     obs_features = hw_to_dataset_features(robot.observation_features, "observation", cfg.dataset.video)
     dataset_features = {**action_features, **obs_features}

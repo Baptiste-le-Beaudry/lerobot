@@ -9,8 +9,10 @@ src/lerobot/constants.py
 src/lerobot/errors.py
 src/lerobot/find_cameras.py
 src/lerobot/find_port.py
+src/lerobot/motsairecord.py
 src/lerobot/record.py
 src/lerobot/replay.py
+src/lerobot/search_robot_type.py
 src/lerobot/setup_motors.py
 src/lerobot/teleoperate.py
 src/lerobot.egg-info/PKG-INFO
@@ -25,6 +27,7 @@ src/lerobot/cameras/utils.py
 src/lerobot/cameras/opencv/__init__.py
 src/lerobot/cameras/opencv/camera_opencv.py
 src/lerobot/cameras/opencv/configuration_opencv.py
+src/lerobot/cameras/opencv/test_cam.py
 src/lerobot/cameras/realsense/__init__.py
 src/lerobot/cameras/realsense/camera_realsense.py
 src/lerobot/cameras/realsense/configuration_realsense.py

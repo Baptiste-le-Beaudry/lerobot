@@ -14,7 +14,7 @@ camera_indices = [0, 1, 2]
 caps = {}
 
 
-"""
+
 for idx in camera_indices:
     cap = cv2.VideoCapture(idx)
     if cap.isOpened():
@@ -54,9 +54,10 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 # Ouverture de la caméra
-cap = cv2.VideoCapture(2)
+index=1
+cap = cv2.VideoCapture(index)
 if not cap.isOpened():
-    print("Impossible d’ouvrir la caméra à l’index 2")
+    print(f"Impossible d’ouvrir la caméra à l’index {index} ")
     sys.exit(1)
 
 # Boucle principale
@@ -76,3 +77,4 @@ while running:
 # Libération des ressources
 cap.release()
 cv2.destroyAllWindows()
+"""
