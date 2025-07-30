@@ -59,9 +59,13 @@ python -m lerobot.record \
 
 import logging
 import time
+import signal
+import sys
+import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from pprint import pformat
+from functools import wraps
 
 from lerobot.cameras import (  # noqa: F401
     CameraConfig,  # noqa: F401
@@ -115,6 +119,43 @@ from lerobot.utils.utils import (
     log_say,
 )
 from lerobot.utils.visualization_utils import _init_rerun, log_rerun_data
+
+
+# Décorateur pour gestion Ctrl+C
+class GracefulExit:
+    def __init__(self):
+        self.exit_requested = False
+
+    def request_exit(self):
+        self.exit_requested = True
+
+    def is_exit_requested(self):
+        return self.exit_requested
+
+graceful_exit = GracefulExit()
+
+def with_ctrl_c_handler(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        def signal_handler(signum, frame):
+            print(f"\n🛑 Ctrl+C détecté! Arrêt en cours...")
+            graceful_exit.request_exit()
+            print("👋 Arrêt forcé")
+            sys.exit(0)
+        
+        original_sigint = signal.signal(signal.SIGINT, signal_handler)
+        
+        try:
+            result = func(*args, **kwargs)
+            return result
+        except KeyboardInterrupt:
+            print("\n🛑 KeyboardInterrupt capturé")
+            graceful_exit.request_exit()
+            return None
+        finally:
+            signal.signal(signal.SIGINT, original_sigint)
+    
+    return wrapper
 
 
 @dataclass
@@ -192,6 +233,7 @@ class RecordConfig:
 
 
 @safe_stop_image_writer
+@with_ctrl_c_handler
 def record_loop(
     robot: Robot,
     events: dict,
@@ -232,7 +274,7 @@ def record_loop(
     while timestamp < control_time_s:
         start_loop_t = time.perf_counter()
 
-        if events["exit_early"]:
+        if events["exit_early"] or graceful_exit.is_exit_requested():
             events["exit_early"] = False
             break
 
@@ -290,6 +332,7 @@ def record_loop(
 
 
 @parser.wrap()
+@with_ctrl_c_handler
 def record(cfg: RecordConfig) -> LeRobotDataset:
     init_logging()
     logging.info(pformat(asdict(cfg)))
@@ -380,14 +423,20 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     policy = None if cfg.policy is None else make_policy(cfg.policy, ds_meta=dataset.meta)
 
     robot.connect()
+
     if teleop is not None:
-        teleop.connect()
+        # Si c'est une liste, on connecte chacun
+        if isinstance(teleop, list):
+            for t in teleop:
+                t.connect()
+        else:
+            teleop.connect()
 
     listener, events = init_keyboard_listener()
 
     with VideoEncodingManager(dataset):
         recorded_episodes = 0
-        while recorded_episodes < cfg.dataset.num_episodes and not events["stop_recording"]:
+        while recorded_episodes < cfg.dataset.num_episodes and not events["stop_recording"] and not graceful_exit.is_exit_requested():
             log_say(f"Recording episode {dataset.num_episodes}", cfg.play_sounds)
             record_loop(
                 robot=robot,
@@ -403,7 +452,7 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
 
             # Execute a few seconds without recording to give time to manually reset the environment
             # Skip reset for the last episode to be recorded
-            if not events["stop_recording"] and (
+            if not events["stop_recording"] and not graceful_exit.is_exit_requested() and (
                 (recorded_episodes < cfg.dataset.num_episodes - 1) or events["rerecord_episode"]
             ):
                 log_say("Reset the environment", cfg.play_sounds)
@@ -429,14 +478,31 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
 
     log_say("Stop recording", cfg.play_sounds, blocking=True)
 
-    robot.disconnect()
-    if teleop is not None:
-        teleop.disconnect()
+    # Déconnexion avec timeout simple
+    def disconnect_with_timeout():
+        try:
+            robot.disconnect()
+        except:
+            pass
+        
+        if teleop is not None:
+            try:
+                if isinstance(teleop, list):
+                    for t in teleop:
+                        t.disconnect()
+                else:
+                    teleop.disconnect()
+            except:
+                pass
+
+    disconnect_thread = threading.Thread(target=disconnect_with_timeout, daemon=True)
+    disconnect_thread.start()
+    disconnect_thread.join(timeout=5)
 
     if not is_headless() and listener is not None:
         listener.stop()
 
-    if cfg.dataset.push_to_hub:
+    if cfg.dataset.push_to_hub and not graceful_exit.is_exit_requested():
         dataset.push_to_hub(tags=cfg.dataset.tags, private=cfg.dataset.private)
 
     log_say("Exiting", cfg.play_sounds)

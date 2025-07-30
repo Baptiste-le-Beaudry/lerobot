@@ -9,15 +9,30 @@ from lerobot.utils.control_utils import init_keyboard_listener
 from lerobot.utils.utils import log_say
 from lerobot.utils.visualization_utils import _init_rerun
 
-NUM_EPISODES = 3
+NUM_EPISODES = 5
 FPS = 30
-EPISODE_TIME_SEC = 30
-RESET_TIME_SEC = 10
-TASK_DESCRIPTION = "My task description"
+EPISODE_TIME_SEC = 40
+RESET_TIME_SEC = 2
+TASK_DESCRIPTION = "go_to_blue_lego"
+
+
+import argparse
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+
+# --- 1. Parser l'argument CLI ---
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--resume",
+    action="store_true",
+    help="Reprendre le dataset existant depuis le Hub"
+)
+parser.set_defaults(resume=False)
+args = parser.parse_args()
+
 
 # Create the robot and teleoperator configurations
-robot_config = LeKiwiClientConfig(remote_ip="172.18.134.136", id="lekiwi")
-leader_arm_config = SO100LeaderConfig(port="/dev/tty.usbmodem585A0077581", id="my_awesome_leader_arm")
+robot_config = LeKiwiClientConfig(remote_ip="192.168.100.151", id="motsaikiwi")
+leader_arm_config = SO100LeaderConfig(port="COM4", id="motsaileader")
 keyboard_config = KeyboardTeleopConfig()
 
 robot = LeKiwiClient(robot_config)
@@ -29,15 +44,27 @@ action_features = hw_to_dataset_features(robot.action_features, "action")
 obs_features = hw_to_dataset_features(robot.observation_features, "observation")
 dataset_features = {**action_features, **obs_features}
 
-# Create the dataset
-dataset = LeRobotDataset.create(
-    repo_id="<hf_username>/<dataset_repo_id>",
-    fps=FPS,
-    features=dataset_features,
-    robot_type=robot.name,
-    use_videos=True,
-    image_writer_threads=4,
-)
+repo_id="Baptiste-le-Beaudry/go_to_lego_test4"
+
+if args.resume:
+    dataset = LeRobotDataset.from_hub(
+        repo_id=repo_id,
+        local_dir="go_to_lego_test4",   # dossier où cloner/réutiliser
+        resume=True
+    )
+    print("✅ Dataset repris depuis le Hub.")
+else:
+    # Create the dataset
+    dataset = LeRobotDataset.create(
+        repo_id=repo_id,
+        fps=FPS,
+        features=dataset_features,
+        robot_type=robot.name,
+        use_videos=True,
+        image_writer_threads=4,
+    )
+    print("✅ Nouveau dataset créé localement.")
+
 
 # To connect you already should have this script running on LeKiwi: `python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=my_awesome_kiwi`
 robot.connect()
@@ -51,51 +78,64 @@ listener, events = init_keyboard_listener()
 if not robot.is_connected or not leader_arm.is_connected or not keyboard.is_connected:
     raise ValueError("Robot, leader arm of keyboard is not connected!")
 
-recorded_episodes = 0
-while recorded_episodes < NUM_EPISODES and not events["stop_recording"]:
-    log_say(f"Recording episode {recorded_episodes}")
+try:
+    recorded_episodes = 0
+    while recorded_episodes < NUM_EPISODES and not events["stop_recording"]:
+        log_say(f"Recording episode {recorded_episodes}")
 
-    # Run the record loop
-    record_loop(
-        robot=robot,
-        events=events,
-        fps=FPS,
-        dataset=dataset,
-        teleop=[leader_arm, keyboard],
-        control_time_s=EPISODE_TIME_SEC,
-        single_task=TASK_DESCRIPTION,
-        display_data=True,
-    )
-
-    # Logic for reset env
-    if not events["stop_recording"] and (
-        (recorded_episodes < NUM_EPISODES - 1) or events["rerecord_episode"]
-    ):
-        log_say("Reset the environment")
+        # Run the record loop
         record_loop(
             robot=robot,
             events=events,
             fps=FPS,
+            dataset=dataset,
             teleop=[leader_arm, keyboard],
-            control_time_s=RESET_TIME_SEC,
+            control_time_s=EPISODE_TIME_SEC,
             single_task=TASK_DESCRIPTION,
             display_data=True,
         )
 
-    if events["rerecord_episode"]:
-        log_say("Re-record episode")
-        events["rerecord_episode"] = False
-        events["exit_early"] = False
-        dataset.clear_episode_buffer()
-        continue
+        # Logic for reset env
+        if not events["stop_recording"] and (
+            (recorded_episodes < NUM_EPISODES - 1) or events["rerecord_episode"]
+        ):
+            log_say("Reset the environment")
+            record_loop(
+                robot=robot,
+                events=events,
+                fps=FPS,
+                teleop=[leader_arm, keyboard],
+                control_time_s=RESET_TIME_SEC,
+                single_task=TASK_DESCRIPTION,
+                display_data=True,
+            )
 
-    dataset.save_episode()
-    recorded_episodes += 1
+        if events["rerecord_episode"]:
+            log_say("Re-record episode")
+            events["rerecord_episode"] = False
+            events["exit_early"] = False
+            dataset.clear_episode_buffer()
+            continue
 
-# Upload to hub and clean up
-dataset.push_to_hub()
+        dataset.save_episode()
+        recorded_episodes += 1
+        
+    # Upload to hub and clean up
 
-robot.disconnect()
-leader_arm.disconnect()
-keyboard.disconnect()
-listener.stop()
+    dataset.push_to_hub()
+
+    robot.disconnect()
+    leader_arm.disconnect()
+    keyboard.disconnect()
+    listener.stop()
+
+except KeyboardInterrupt:
+    log_say("🔴 Arrêt utilisateur (Ctrl+C) détecté, on nettoie.")
+
+finally:
+    log_say("🚀 Envoi des données et déconnexion…")
+    dataset.push_to_hub()
+    robot.disconnect()
+    leader_arm.disconnect()
+    keyboard.disconnect()
+    listener.stop()
