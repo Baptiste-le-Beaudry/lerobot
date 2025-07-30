@@ -766,14 +766,14 @@ def validate_frame(frame: dict, features: dict):
     expected = set(features) - set(DEFAULT_FEATURES)
     actual = set(frame)
 
-    # 1) presence check
+   
     error_message = validate_features_presence(actual, expected)
 
-    # 2) per-feature validation
+    
     for name in actual & expected - {"task"}:
         value = frame[name]
 
-        # Correction proactive pour la caméra wrist
+       
         if name == "observation.images.wrist" and isinstance(value, np.ndarray):
             if value.shape == (640, 480, 3):
                 value = cv2.rotate(value, cv2.ROTATE_180)
