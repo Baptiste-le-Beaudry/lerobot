@@ -332,46 +332,48 @@ class OpenCVCamera(Camera):
 
     def _postprocess_image(self, image: np.ndarray, color_mode: ColorMode | None = None) -> np.ndarray:
         """
-        Applies color conversion, dimension validation, and rotation to a raw frame.
+        Applies rotation, cropping, dimension validation and color conversion to a raw frame.
 
         Args:
-            image (np.ndarray): The raw image frame (expected BGR format from OpenCV).
-            color_mode (Optional[ColorMode]): The target color mode (RGB or BGR). If None,
-                                             uses the instance's default `self.color_mode`.
+            image (np.ndarray): The raw BGR image from OpenCV.
+            color_mode (Optional[ColorMode]): If provided, overrides self.color_mode.
 
         Returns:
-            np.ndarray: The processed image frame.
+            np.ndarray: Processed frame of shape (capture_height, capture_width, 3).
 
         Raises:
-            ValueError: If the requested `color_mode` is invalid.
-            RuntimeError: If the raw frame dimensions do not match the configured
-                          `width` and `height`.
+            ValueError: Bad color_mode.
+            RuntimeError: If final dimensions or channels mismatch.
         """
+        # 1) Color mode determination
         requested_color_mode = self.color_mode if color_mode is None else color_mode
-
         if requested_color_mode not in (ColorMode.RGB, ColorMode.BGR):
-            raise ValueError(
-                f"Invalid color mode '{requested_color_mode}'. Expected {ColorMode.RGB} or {ColorMode.BGR}."
-            )
+            raise ValueError(f"Invalid color mode '{requested_color_mode}'.")
 
+        # 2) Rotate first
+        if self.rotation is not None:
+            image = cv2.rotate(image, self.rotation)
+
+        # 3) Crop center if too large
+        target_h, target_w = self.capture_height, self.capture_width
+        h, w = image.shape[:2]
+        if w > target_w or h > target_h:
+            x0 = (w - target_w) // 2
+            y0 = (h - target_h) // 2
+            image = image[y0:y0+target_h, x0:x0+target_w]
+
+        # 4) Validate dimensions and channels
         h, w, c = image.shape
-
-        if h != self.capture_height or w != self.capture_width:
-            raise RuntimeError(
-                f"{self} frame width={w} or height={h} do not match configured width={self.capture_width} or height={self.capture_height}."
-            )
-
+        if (h, w) != (target_h, target_w):
+            raise RuntimeError(f"{self} frame is {w}x{h}, but expected {target_w}x{target_h}.")
         if c != 3:
-            raise RuntimeError(f"{self} frame channels={c} do not match expected 3 channels (RGB/BGR).")
+            raise RuntimeError(f"{self} frame channels={c}, expected 3.")
 
-        processed_image = image
+        # 5) Convert to RGB if needed
         if requested_color_mode == ColorMode.RGB:
-            processed_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        if self.rotation in [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE]:
-            processed_image = cv2.rotate(processed_image, self.rotation)
-
-        return processed_image
+        return image
 
     def _read_loop(self):
         """

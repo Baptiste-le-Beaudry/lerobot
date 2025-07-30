@@ -156,7 +156,8 @@ class LeKiwiClient(Robot):
 
         if self.zmq_observation_socket not in socks:
             logging.info("No new data available within timeout.")
-            return None
+            #return None
+            pass
 
         last_msg = None
         while True:

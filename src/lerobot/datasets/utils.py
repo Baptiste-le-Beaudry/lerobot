@@ -739,8 +739,7 @@ class IterableNamespace(SimpleNamespace):
     def keys(self):
         return vars(self).keys()
 
-
-def validate_frame(frame: dict, features: dict):
+""" def validate_frame(frame: dict, features: dict):
     expected_features = set(features) - set(DEFAULT_FEATURES)
     actual_features = set(frame)
 
@@ -751,9 +750,40 @@ def validate_frame(frame: dict, features: dict):
         error_message += validate_feature_dtype_and_shape(name, features[name], frame[name])
 
     if error_message:
-        #raise ValueError(error_message)
-        #print(error_message)
-        pass
+        raise ValueError(error_message)
+  """
+
+
+import cv2
+
+# Overwrite validate_frame to handle wrist image rotation
+
+
+def validate_frame(frame: dict, features: dict):
+    """
+    Validate all features in `frame` against `features`, correcting wrist orientation if needed.
+    """
+    expected = set(features) - set(DEFAULT_FEATURES)
+    actual = set(frame)
+
+    # 1) presence check
+    error_message = validate_features_presence(actual, expected)
+
+    # 2) per-feature validation
+    for name in actual & expected - {"task"}:
+        value = frame[name]
+
+        # Correction proactive pour la caméra wrist
+        if name == "observation.images.wrist" and isinstance(value, np.ndarray):
+            if value.shape == (640, 480, 3):
+                value = cv2.rotate(value, cv2.ROTATE_180)
+                frame[name] = value
+        
+        error_message += validate_feature_dtype_and_shape(name, features[name], frame[name])
+
+
+
+
 
 def validate_features_presence(actual_features: set[str], expected_features: set[str]):
     error_message = ""

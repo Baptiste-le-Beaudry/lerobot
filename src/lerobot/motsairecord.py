@@ -326,7 +326,7 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
                 height=480,
                 index_or_path=0,
                 color_mode=ColorMode.RGB,
-                rotation=Cv2Rotation.NO_ROTATION,
+                rotation=Cv2Rotation.ROTATE_90,
                 warmup_s=1,
             ),
         },
