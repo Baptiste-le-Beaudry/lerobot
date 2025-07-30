@@ -110,6 +110,7 @@ class KeyboardTeleop(Teleoperator):
             self.event_queue.put((key.char, False))
         if key == keyboard.Key.esc:
             logging.info("ESC pressed, disconnecting.")
+            self.event_queue.put(("__stop__", True))
             self.disconnect()
 
     def _drain_pressed_keys(self):
