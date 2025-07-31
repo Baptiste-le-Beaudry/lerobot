@@ -15,6 +15,10 @@ python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=motsaikiwi
 python -m lerobot.motsairecord  --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_go_to_lego_test11 --dataset.single_task="lekiwi_go_to_blue_lego" --dataset.num_episodes=1
 
 
+#To record a policy with lekiwi
+python -m lerobot.motsairecord_policy  --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_go_to_lego --dataset.single_task="lekiwi_go_to_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_go_to_lego
+
+
 
 
 python -m lerobot.record --robot.type=so100_follower --robot.port=COM3 --robot.id=motsaikiwi --robot.cameras="{\"front\":{\"type\":\"opencv\",\"index_or_path\":1,\"width\":640,\"height\":480,\"fps\":30},\"wrist\":{\"type\":\"opencv\",\"index_or_path\":0,\"width\":640,\"height\":480,\"fps\":30}}" --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_pick_and_place_lego --dataset.single_task="pick_place_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_pick_and_place_lego  
