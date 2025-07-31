@@ -179,8 +179,64 @@ class OpenCVCamera(Camera):
 
         logger.info(f"{self} connected.")
 
+
     def _configure_capture_settings(self) -> None:
         """
+        Applies the specified FPS, width, and height settings to the connected camera.
+
+        This method attempts to set the camera properties via OpenCV. It checks if
+        the camera successfully applied the settings and raises an error if not.
+
+        Raises:
+            RuntimeError: If the camera fails to set any of the specified properties
+                          to the requested value.
+            DeviceNotConnectedError: If the camera is not connected when attempting
+                                     to configure settings.
+        """
+        if not self.is_connected:
+            raise DeviceNotConnectedError(f"Cannot configure settings for {self} as it is not connected.")
+
+        # 1) Set FPS if specified
+        if self.fps is None:
+            self.fps = self.videocapture.get(cv2.CAP_PROP_FPS)
+        else:
+            self._validate_fps()
+
+        # 2) Determine raw resolution to request based on final (post-rotation) config
+        #    width/height in config represent the final dimensions after any rotation
+        #    so swap for raw request if rotating by 90 or 270 degrees
+        if self.rotation in (cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE):
+            raw_width, raw_height = self.capture_height, self.capture_width
+        else:
+            raw_width, raw_height = self.capture_width, self.capture_height
+
+        # 3) Apply raw width/height settings to the VideoCapture
+        self.videocapture.set(cv2.CAP_PROP_FRAME_WIDTH, raw_width)
+        self.videocapture.set(cv2.CAP_PROP_FRAME_HEIGHT, raw_height)
+
+        # 4) Verify camera applied settings
+        actual_raw_w = int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_WIDTH)))
+        actual_raw_h = int(round(self.videocapture.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        width_success = (actual_raw_w == raw_width)
+        height_success = (actual_raw_h == raw_height)
+        if not width_success or not height_success:
+            raise RuntimeError(
+                f"{self} failed to set raw resolution "
+                f"({raw_width}x{raw_height}), actual is {actual_raw_w}x{actual_raw_h}."
+            )
+        logger.info(f"{self} raw resolution set to {actual_raw_w}x{actual_raw_h}")
+
+        # 5) Assign final capture dimensions for post-processing
+        #    These remain as originally configured (width, height)
+        self.capture_width = self.capture_width
+        self.capture_height = self.capture_height
+
+        # 6) Any additional behavior (e.g. cropping) will use capture_width/height
+
+
+    """
+    def _configure_capture_settings(self) -> None:
+        """"""
         Applies the specified FPS, width, and height settings to the connected camera.
 
         This method attempts to set the camera properties via OpenCV. It checks if
@@ -196,7 +252,7 @@ class OpenCVCamera(Camera):
                           to the requested value.
             DeviceNotConnectedError: If the camera is not connected when attempting
                                      to configure settings.
-        """
+        """"""
         if not self.is_connected:
             raise DeviceNotConnectedError(f"Cannot configure settings for {self} as it is not connected.")
 
@@ -216,7 +272,7 @@ class OpenCVCamera(Camera):
                 self.capture_width, self.capture_height = default_width, default_height
         else:
             self._validate_width_and_height()
-
+    """
     def _validate_fps(self) -> None:
         """Validates and sets the camera's frames per second (FPS)."""
 
