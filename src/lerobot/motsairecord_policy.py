@@ -331,10 +331,6 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
         },
     )
 
-    cfg.teleop = [
-        SO100LeaderConfig(id="motsaileader", port="COM4", calibration_dir=None),
-        KeyboardTeleopConfig( id="clavier",calibration_dir=None, mock=False )
-    ]
     
     #cfg.robot=SO100FollowerConfig(id='motsaikiwi', calibration_dir=None, port='COM3', disable_torque_on_disconnect=True, max_relative_target=None, cameras={'front': OpenCVCameraConfig(fps=30, width=640, height=480, index_or_path=1, color_mode=<ColorMode.RGB: 'rgb'>, rotation=<Cv2Rotation.NO_ROTATION: 0>, warmup_s=1), 'wrist': OpenCVCameraConfig(fps=30, width=640, height=480, index_or_path=0, color_mode=<ColorMode.RGB: 'rgb'>, rotation=<Cv2Rotation.NO_ROTATION: 0>, warmup_s=1)}, use_degrees=False)
     #SO100LeaderConfig(id='motsaileader', calibration_dir=None, port='COM4')
