@@ -297,23 +297,25 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     from lerobot.robots import RobotConfig
     
 
-
+    # 🔧 MODIFICATION UTILISATEUR : Configuration des imports selon votre robot
     #'[{\"type\": \"so100_leader\", \"port\": \"COM4\", \"id\": \"motsaileader\"}, {\"type\": \"keyboard\"}]' 
     from lerobot.cameras.opencv.configuration_opencv import OpenCVCameraConfig, ColorMode, Cv2Rotation
     from lerobot.robots.lekiwi.config_lekiwi import LeKiwiClientConfig
     from lerobot.teleoperators.so100_leader.config_so100_leader import SO100LeaderConfig
     from lerobot.teleoperators.keyboard.configuration_keyboard import KeyboardTeleopConfig
     import zmq
+    
+    # 🔧 MODIFICATION UTILISATEUR : Configuration du robot - changez selon votre setup
     cfg.robot = LeKiwiClientConfig(
-        id="motsaikiwi",
+        id="motsaikiwi",  # 🔧 MODIFICATION UTILISATEUR : Changez l'ID de votre robot
         calibration_dir=None,
-        remote_ip="192.168.100.151",
+        remote_ip="192.168.100.151",  # 🔧 MODIFICATION UTILISATEUR : Changez l'IP de votre Raspberry Pi
         cameras={
             "front": OpenCVCameraConfig(
                 fps=30,
                 width=640,
                 height=480,
-                index_or_path=0,
+                index_or_path=0,  # 🔧 MODIFICATION UTILISATEUR : Index de votre caméra avant
                 color_mode=ColorMode.RGB,
                 rotation=Cv2Rotation.NO_ROTATION,
                 warmup_s=1,
@@ -322,19 +324,22 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
                 fps=30,
                 width=640,
                 height=480,
-                index_or_path=2,
+                index_or_path=2,  # 🔧 MODIFICATION UTILISATEUR : Index de votre caméra poignet
                 color_mode=ColorMode.RGB,
-                rotation=Cv2Rotation.ROTATE_90,
+                rotation=Cv2Rotation.ROTATE_90,  # 🔧 MODIFICATION UTILISATEUR : Rotation selon votre setup
                 warmup_s=1,
             ),
         },
     )
 
+    # 🔧 MODIFICATION UTILISATEUR : Configuration du téléopérateur - changez les ports et IDs
     cfg.teleop = [
-        SO100LeaderConfig(id="motsaileader", port="COM4", calibration_dir=None),
+        SO100LeaderConfig(id="motsaileader", port="COM4", calibration_dir=None),  # 🔧 MODIFICATION UTILISATEUR : Port de votre SO100 leader
         KeyboardTeleopConfig( id="clavier",calibration_dir=None, mock=False )
     ]
     
+    # 🔧 MODIFICATION UTILISATEUR : Configuration alternative pour SO100Follower (commentée)
+    # Décommentez et modifiez si vous utilisez SO100Follower au lieu de LeKiwi
     #cfg.robot=SO100FollowerConfig(id='motsaikiwi', calibration_dir=None, port='COM3', disable_torque_on_disconnect=True, max_relative_target=None, cameras={'front': OpenCVCameraConfig(fps=30, width=640, height=480, index_or_path=1, color_mode=<ColorMode.RGB: 'rgb'>, rotation=<Cv2Rotation.NO_ROTATION: 0>, warmup_s=1), 'wrist': OpenCVCameraConfig(fps=30, width=640, height=480, index_or_path=0, color_mode=<ColorMode.RGB: 'rgb'>, rotation=<Cv2Rotation.NO_ROTATION: 0>, warmup_s=1)}, use_degrees=False)
     #SO100LeaderConfig(id='motsaileader', calibration_dir=None, port='COM4')
 
@@ -380,7 +385,7 @@ def record(cfg: RecordConfig) -> LeRobotDataset:
     robot.connect()
 
     if teleop is not None:
-        # Si c’est une liste, on connecte chacun
+        # Si c'est une liste, on connecte chacun
         if isinstance(teleop, list):
             for t in teleop:
                 t.connect()

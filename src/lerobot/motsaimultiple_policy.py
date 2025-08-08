@@ -419,28 +419,30 @@ except ImportError:
 
 @parser.wrap()
 def main(cfg_cli: RecordConfig1):
-    """✅ Fonction main corrigée"""
+    """✅ Fonction main - ADAPTEZ LES PARAMÈTRES CI-DESSOUS"""
 
-    # ✅ Configuration robot1 correcte
+    # 🔧 CONFIGURATION ROBOT1 - ADAPTEZ VOS PARAMÈTRES ICI
     robot1_cfg = SO100FollowerConfig(
-        id="motsaikiwi",
-        port="/dev/ttyACM0",
-        calibration_dir=None,
+        id="motsaikiwi",  # ⚠️ CHANGEZ: ID unique pour votre robot1
+        port="/dev/ttyACM0",  # ⚠️ CHANGEZ: Port série de votre robot1 (ex: "/dev/ttyUSB0", "COM3")
+        calibration_dir=None,  # ⚠️ OPTIONNEL: Chemin vers dossier de calibration
         cameras={
+            # 🎥 CAMÉRA FRONTALE - Adaptez selon votre setup
             "front": OpenCVCameraConfig(
-                fps=30,
-                width=640,
-                height=480,
-                index_or_path=0,
+                fps=30,  # ⚠️ ADAPTEZ: FPS de votre caméra
+                width=640,  # ⚠️ ADAPTEZ: Résolution largeur
+                height=480,  # ⚠️ ADAPTEZ: Résolution hauteur
+                index_or_path=0,  # ⚠️ CHANGEZ: Index caméra (0, 1, 2...) ou chemin "/dev/video0"
                 color_mode=ColorMode.RGB,
-                rotation=Cv2Rotation.NO_ROTATION,
+                rotation=Cv2Rotation.NO_ROTATION,  # ⚠️ ADAPTEZ: Rotation si nécessaire
                 warmup_s=1,
             ),
+            # 🎥 CAMÉRA POIGNET - Adaptez selon votre setup
             "wrist": OpenCVCameraConfig(
                 fps=30,
                 width=640,
                 height=480,
-                index_or_path=1,
+                index_or_path=1,  # ⚠️ CHANGEZ: Index différent de la caméra frontale
                 color_mode=ColorMode.RGB,
                 rotation=Cv2Rotation.NO_ROTATION,
                 warmup_s=1,
@@ -458,17 +460,18 @@ def main(cfg_cli: RecordConfig1):
         resume=cfg_cli.resume,
     )
 
-    # ✅ Simplifié : utilise policy2_repo_id au lieu d'un config complexe
+    # 🔧 CONFIGURATION ROBOT2 - ADAPTEZ VOS PARAMÈTRES ICI
     cfg2 = RecordConfig2(
         robot2=LeKiwiConfig(
-            id="motsaikiwi2",  # ✅ ID différent pour éviter conflits
+            id="motsaikiwi2",  # ⚠️ CHANGEZ: ID unique différent du robot1
             calibration_dir=None,
             cameras={
+                # 🎥 Mêmes caméras que robot1 - peuvent être partagées
                 "front": OpenCVCameraConfig(
                     fps=30,
                     width=640,
                     height=480,
-                    index_or_path=0,
+                    index_or_path=0,  # ⚠️ Même index que robot1 car partagées
                     color_mode=ColorMode.RGB,
                     rotation=Cv2Rotation.NO_ROTATION,
                     warmup_s=1,
@@ -484,12 +487,22 @@ def main(cfg_cli: RecordConfig1):
                 )
             },
         ),
+        # 🎮 TÉLÉ-OPÉRATION ROBOT2 - Adaptez selon votre setup
         teleop2=[
-            SO100LeaderConfig(id="motsaileader2", port="COM4", calibration_dir=None),
-            KeyboardTeleopConfig(id="clavier2", calibration_dir=None, mock=False)
+            SO100LeaderConfig(
+                id="motsaileader2",  # ⚠️ CHANGEZ: ID unique pour votre leader
+                port="COM4",  # ⚠️ CHANGEZ: Port série de votre robot leader (ex: "/dev/ttyUSB1", "COM5")
+                calibration_dir=None
+            ),
+            KeyboardTeleopConfig(
+                id="clavier2",
+                calibration_dir=None,
+                mock=False  # ⚠️ CHANGEZ: True si pas de clavier physique
+            )
         ],
         policy2=None,  # ✅ Pas de config policy complexe
-        policy2_repo_id="Baptiste-le-Beaudry/act_lekiwi_take_lego",  # ✅ Juste le repo_id
+        # 🤖 POLICY2 - ADAPTEZ VOTRE REPO HUGGING FACE
+        policy2_repo_id="Baptiste-le-Beaudry/act_lekiwi_take_lego",  # ⚠️ CHANGEZ: Votre repo HuggingFace
         dataset=cfg_cli.dataset,
         display_data=cfg_cli.display_data,
         play_sounds=cfg_cli.play_sounds,

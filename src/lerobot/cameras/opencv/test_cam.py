@@ -2,14 +2,13 @@ import cv2
 import signal
 import sys
 
-# Pour gérer Ctrl+C proprement
 running = True
 def signal_handler(sig, frame):
     global running
     running = False
 signal.signal(signal.SIGINT, signal_handler)
 
-# Essaie les indices 0 à 3 (tu peux en ajouter si besoin)
+
 camera_indices = [0, 1, 2]
 caps = {}
 
@@ -34,7 +33,7 @@ while running:
         if ret:
             cv2.imshow(f"Camera {idx}", frame)
 
-    # 1ms pour traitement des fenêtres
+
     if cv2.waitKey(1) == 27:  # Échap pour quitter aussi
         break
 """

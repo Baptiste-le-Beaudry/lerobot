@@ -2,6 +2,10 @@
 
 Ce fichier a pour utilité d'orienter les futurs utilisateurs de LeRobot de MOTSAI.
 
+## Servomoteur
+
+Si vous voulez vous familiariser avec les servomoteurs sur lekiwi, il y a des repo git hub qui vous permettent d'utiliser les fonction des servos. Par exemple: https://github.com/TengHu/feetech-servo-sdk.git
+
 ## Installation
 
 Installer le dépôt avec Anaconda en suivant `docs/source/installation.mdx`
@@ -20,12 +24,15 @@ Il n'y a pas de manière pour supprimer les mauvais épisodes. Il est possible d
 
 ### Pour enregistrer des datasets avec LeKiwi sur le Raspberry Pi
 
+Les informations suivantes concernent lekiwi.
+
 1. **Ouvrir un PowerShell en mode SSH**
 
    Sur le WiFi MSR-V2 :
    ```bash
    ssh motsai@192.168.100.151
    ```
+Le mot de passe pour le ssh est: password
 
 2. **Activer votre environnement Anaconda**
    ```bash
@@ -150,12 +157,7 @@ Pour exécuter un modèle avec le Raspberry Pi sur LeKiwi :
 
 1. **Dans PowerShell en SSH :**
    ```bash
-   python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=motsaikiwi
-   ```
-
-2. **Dans le terminal Conda :**
-   ```bash
-   python -m lerobot.motsairecord_policy --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_go_to_lego --dataset.single_task="lekiwi_go_to_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_go_to_lego
+   python -m lerobot.motsairecord_policy --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_go_to_lego --dataset.single_task="lekiwi_go_to_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_go_to_lego --resume=true
    ```
 
 Les paramètres de LeRobot sont codés dans le fichier `lerobot/motsairecord_policy.py` dans `record()`. Vous pouvez aller les changer.
