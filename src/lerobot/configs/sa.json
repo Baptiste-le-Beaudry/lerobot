@@ -1,0 +1,50 @@
+{
+  "type": "gym_manipulator",
+  "robot": {
+    "type": "so100_follower_end_effector",
+    "port": "COM13",
+    "id": "motsaikiwi",
+    "urdf_path": "SO-ARM100/Simulation/SO100/so100.urdf",
+    "end_effector_bounds": {
+      "min": [0.0, -0.25, 0.0],
+      "max": [0.5, 0.25, 0.5]
+    },
+
+    "end_effector_step_sizes": {
+      "x": 0.02, "y": 0.02, "z": 0.02
+    },
+    "cameras": {
+      "front": { "type": "opencv", "index_or_path": 2, "height": 480, "width": 640, "fps": 30 },
+      "wrist": { "type": "opencv", "index_or_path": 0, "height": 480, "width": 640, "fps": 30 }
+    }
+  },
+  "teleop": {
+    "type": "so100_leader",
+    "port": "COM4",
+    "id": "motsaileader"
+  },
+  "wrapper": {
+    "display_cameras": false,
+    "add_joint_velocity_to_observation": true,
+    "add_current_to_observation": true,
+    "add_ee_pose_to_observation": true,
+    "crop_params_dict": {
+      "observation.images.front": [270, 170, 90, 190],
+      "observation.images.wrist": [0, 0, 480, 640]
+    },
+    "resize_size": [128, 128],
+    "control_time_s": 20.0,
+    "use_gripper": true,
+    "fixed_reset_joint_positions": [0.0,0.0,0.0,90.0,0.0,5.0],
+    "reset_time_s": 2.5,
+    "control_mode": "teleop"
+  },
+  "mode": "record",
+  "repo_id": "Baptiste-le-Beaudry/teleop_take_lego",
+  "task": "take_blue_lego",
+  "num_episodes": 50,
+  "fps": 10,
+  "device": "cuda",
+  "push_to_hub": true,
+  "number_of_steps_after_success": 15
+}

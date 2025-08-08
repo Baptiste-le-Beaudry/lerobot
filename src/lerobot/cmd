@@ -1,0 +1,38 @@
+python -m lerobot.record --robot.type=so100_follower --robot.port=COM13 --robot.id=motsaikiwi --robot.cameras="{\"front\":{\"type\":\"opencv\",\"index_or_path\":0,\"width\":640,\"height\":480,\"fps\":30},\"wrist\":{\"type\":\"opencv\",\"index_or_path\":2,\"width\":640,\"height\":480,\"fps\":30}}" --teleop.type=so100_leader --teleop.port=COM4 --teleop.id=motsaileader --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_pick_place_lego --dataset.single_task="pick_place_blue_lego" --dataset.num_episodes=5
+
+
+#python -m lerobot.motsairecord --robot.type=lekiwi_client --robot.port=COM13 --robot.id=motsaikiwi --robot.cameras="{\"front\":{\"type\":\"opencv\",\"index_or_path\":0,\"width\":640,\"height\":480,\"fps\":30},\"wrist\":{\"type\":\"opencv\",\"index_or_path\":1,\"width\":640,\"height\":480,\"fps\":30}}" --teleop='[{\"type\": \"so100_leader\", \"port\": \"COM4\", \"id\": \"motsaileader\"}, {\"type\": \"keyboard\"}]' --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_go_to_lego_test1 --dataset.single_task="lekiwi_go_to_lego_test1_blue" --dataset.num_episodes=5
+------>
+python -m lerobot.motsairecord --robot.type=so100_follower --robot.port=COM13 --robot.id=motsaikiwi --robot.cameras="{\"front\":{\"type\":\"opencv\",\"index_or_path\":0,\"width\":640,\"height\":480,\"fps\":30},\"wrist\":{\"type\":\"opencv\",\"index_or_path\":1,\"width\":640,\"height\":480,\"fps\":30}}" --teleop.type=so100_leader --teleop.port=COM4 --teleop.id=motsaileader --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_go_to_lego_test2 --dataset.single_task="lekiwi_go_to_blue_lego" --dataset.num_episodes=5
+
+
+python -m lerobot.record --robot.type=so100_follower --robot.port=COM13 --robot.id=motsaikiwi --robot.cameras="{\"front\":{\"type\":\"opencv\",\"index_or_path\":0,\"width\":640,\"height\":480,\"fps\":30},\"wrist\":{\"type\":\"opencv\",\"index_or_path\":1,\"width\":640,\"height\":480,\"fps\":30}}" --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_pick_place_lego --dataset.single_task="pick_place_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_pick_place_lego
+
+######moins pratique que avec lekiwi/record.py
+#POUR RECORD DES EPISODES AVEC LEKIWI EN SSH ET UTILISER LES SUCCES/RERECORD
+python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=motsaikiwi
+python examples/lekiwi/record.py --resume --repo_id="Baptiste-le-Beaudry/lekiwi_roll_to_lego"
+
+#POUR RECORD DES EPISODES AVEC LEKIWI EN SSH UTILISER LES SUCCES/RERECORD
+#seulement un episode a la fois peut etre record. 
+python -m lerobot.robots.lekiwi.lekiwi_host --robot.id=motsaikiwi
+python -m lerobot.motsairecord_data  --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_roll_to_legotest77 --dataset.single_task="lekiwi_roll_to_blue_lego" --dataset.num_episodes=1 --resume=false
+
+
+#To record a policy with lekiwi
+python -m lerobot.motsairecord_policy  --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_go_to_lego --dataset.single_task="lekiwi_go_to_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_go_to_lego
+
+
+python -m lerobot.record --robot.type=so100_follower --robot.port=COM3 --robot.id=motsaikiwi --robot.cameras="{\"front\":{\"type\":\"opencv\",\"index_or_path\":1,\"width\":640,\"height\":480,\"fps\":30},\"wrist\":{\"type\":\"opencv\",\"index_or_path\":0,\"width\":640,\"height\":480,\"fps\":30}}" --display_data=false --dataset.repo_id=Baptiste-le-Beaudry/eval_lekiwi_pick_and_place_lego --dataset.single_task="pick_place_blue_lego" --dataset.num_episodes=1 --policy.path=Baptiste-le-Beaudry/act_lekiwi_pick_and_place_lego  
+
+# Pour entraîner un modèle avec les données enregistrées
+python -m lerobot.scripts.train --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_roll_to_and_look_lego --policy.type=act --output_dir=outputs/train/act_lekiwi_roll_to_and_look_lego --job_name=act_lekiwi_roll_to_and_look_lego --policy.device=cuda --wandb.enable=true --policy.repo_id=Baptiste-le-Beaudry/act_lekiwi_roll_to_and_look_lego
+
+#pour calibrer lekiwi
+python -m lerobot.calibrate --robot.type=lekiwi --robot.id=motsaikiwi
+python -m lerobot.calibrate --teleop.type=so100_leader --teleop.port=COM4 --teleop.id=motsaileader
+
+#pour record une policy 1 pouis 2 (a voir si fonctionnel)
+python -m lerobot.motsaimultiple_policy --robot1.type=lekiwi --robot1.id=motsaifollower --teleop1.type=so100_leader --teleop1.port=COM4 --teleop1.id=motsaileader --dataset.repo_id=Baptiste-le-Beaudry/lekiwi_mutliplepolicytest4 --dataset.single_task="lekiwi_go_to_blue_lego_and_grab" --dataset.num_episodes=1 --policy1.repo_id=Baptiste-le-Beaudry/act_lekiwi_go_to_lego --policy1.type=act --display_data=false
+
+
